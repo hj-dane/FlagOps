@@ -1,10 +1,11 @@
+// app/(admin)/_layout.jsx
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { useTheme } from 'react-native-paper';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-const PENDING_COUNT = 3; // TODO: replace with realtime subscription value
+const PENDING_COUNT = 3;
 
 export default function AdminLayout() {
   const theme = useTheme();
@@ -14,18 +15,18 @@ export default function AdminLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.outline,
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#EEEEEE',
           borderTopWidth: 1,
-          height: 60,
+          height: 62,
           paddingBottom: 8,
+          paddingTop: 4,
         },
         tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
+        tabBarInactiveTintColor: '#AAAAAA',
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
       }}
     >
-      {/* ── Visible tabs ── */}
       <Tabs.Screen
         name="dashboard/index"
         options={{
@@ -43,7 +44,7 @@ export default function AdminLayout() {
             <View>
               <MaterialCommunityIcons name="check-circle-outline" size={22} color={color} />
               {PENDING_COUNT > 0 && (
-                <View style={[styles.badge, { backgroundColor: theme.colors.tertiary }]}>
+                <View style={[styles.badge, { backgroundColor: theme.colors.primary }]}>
                   <Text style={styles.badgeText}>{PENDING_COUNT}</Text>
                 </View>
               )}
@@ -96,9 +97,7 @@ export default function AdminLayout() {
           ),
         }}
       />
-
-      {/* ── Hidden drill-down screens (no tab entry) ── */}
-      <Tabs.Screen name="organizations/[id]"  options={{ href: null }} />
+      <Tabs.Screen name="organizations/[id]" options={{ href: null }} />
       <Tabs.Screen name="teams/[id]"          options={{ href: null }} />
       <Tabs.Screen name="players/[id]"        options={{ href: null }} />
       <Tabs.Screen name="approvals/[id]"      options={{ href: null }} />
@@ -118,5 +117,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
   },
-  badgeText: { fontSize: 9, fontWeight: '900', color: '#1A1000' },
+  badgeText: { fontSize: 9, fontWeight: '900', color: '#FFFFFF' },
 });

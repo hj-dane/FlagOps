@@ -1,11 +1,12 @@
 // app/(admin)/players/index.jsx
 import React, { useState, useMemo } from 'react';
 import { View, FlatList, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
-import { Text, Searchbar, Surface, useTheme } from 'react-native-paper';
+import { Text, Searchbar, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StatusPill from '../../../components/StatusPill';
 import { PLAYERS } from '../../../data/mockData';
-import { SPACING } from '../../../theme';
+import { SPACING, CARD_SHADOW } from '../../../theme';
 
 const POSITIONS = ['All', 'QB', 'WR', 'C', 'Rusher', 'DB'];
 
@@ -16,44 +17,33 @@ export default function AllPlayersScreen() {
   const [posFilter, setPosFilter] = useState('All');
   const [refreshing, setRefreshing] = useState(false);
 
-  const filtered = useMemo(() => {
-    return PLAYERS.filter((p) => {
-      const matchesQuery =
-        p.name.toLowerCase().includes(query.toLowerCase()) ||
-        String(p.jerseyNumber).includes(query);
-      const matchesPos =
-        posFilter === 'All' || p.positions.includes(posFilter);
+  const filtered = useMemo(() =>
+    PLAYERS.filter((p) => {
+      const matchesQuery = p.name.toLowerCase().includes(query.toLowerCase()) || String(p.jerseyNumber).includes(query);
+      const matchesPos = posFilter === 'All' || p.positions.includes(posFilter);
       return matchesQuery && matchesPos;
-    });
-  }, [query, posFilter]);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  };
+    }), [query, posFilter]
+  );
 
   const renderPlayer = ({ item }) => (
     <TouchableOpacity
-      onPress={() =>
-        router.push({ pathname: '/(admin)/players/[id]', params: { id: item.id } })
-      }
-      activeOpacity={0.75}
+      onPress={() => router.push({ pathname: '/(admin)/players/[id]', params: { id: item.id } })}
+      activeOpacity={0.7}
     >
-      <Surface style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={0}>
-        <View style={styles.jerseyBadge}>
-          <Text style={[styles.jerseyNum, { color: theme.colors.primary }]}>#{item.jerseyNumber}</Text>
+      <View style={[styles.card, CARD_SHADOW]}>
+        <View style={[styles.jerseyBadge, { backgroundColor: theme.colors.primary }]}>
+          <Text style={styles.jerseyNum}>#{item.jerseyNumber}</Text>
         </View>
         <View style={styles.cardBody}>
           <Text style={[styles.playerName, { color: theme.colors.onSurface }]}>{item.name}</Text>
-          <Text style={[styles.playerMeta, { color: theme.colors.onSurfaceVariant }]}>
-            {item.positions.join(' / ')} · {item.teamName}
-          </Text>
-          <Text style={[styles.orgLabel, { color: theme.colors.onSurfaceVariant }]}>
-            {item.orgName}
-          </Text>
+          <Text style={styles.playerMeta}>{item.positions.join(' / ')} · {item.teamName}</Text>
+          <Text style={styles.orgLabel}>{item.orgName}</Text>
         </View>
-        <StatusPill status={item.status} />
-      </Surface>
+        <View style={styles.cardRight}>
+          <StatusPill status={item.status} />
+          <MaterialCommunityIcons name="chevron-right" size={18} color="#CCCCCC" style={{ marginTop: 6 }} />
+        </View>
+      </View>
     </TouchableOpacity>
   );
 
@@ -61,20 +51,23 @@ export default function AllPlayersScreen() {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.headerRow}>
         <Text style={[styles.screenTitle, { color: theme.colors.onSurface }]}>All Players</Text>
-        <Text style={[styles.countBadge, { color: theme.colors.primary }]}>{PLAYERS.length}</Text>
+        <View style={[styles.countBadge, { backgroundColor: theme.colors.primary }]}>
+          <Text style={styles.countBadgeText}>{PLAYERS.length}</Text>
+        </View>
       </View>
 
       <Searchbar
         placeholder="Search name or jersey #…"
         value={query}
         onChangeText={setQuery}
-        style={[styles.searchbar, { backgroundColor: theme.colors.surfaceVariant }]}
-        inputStyle={{ color: theme.colors.onSurface }}
-        iconColor={theme.colors.onSurfaceVariant}
-        placeholderTextColor={theme.colors.onSurfaceVariant}
+        style={styles.searchbar}
+        inputStyle={{ color: theme.colors.onSurface, fontSize: 14 }}
+        iconColor="#AAAAAA"
+        placeholderTextColor="#AAAAAA"
+        elevation={0}
       />
 
-      {/* Position filter pills */}
+      {/* Position filter */}
       <View style={styles.filterRow}>
         {POSITIONS.map((pos) => (
           <TouchableOpacity
@@ -82,18 +75,12 @@ export default function AllPlayersScreen() {
             onPress={() => setPosFilter(pos)}
             style={[
               styles.filterPill,
-              {
-                backgroundColor:
-                  posFilter === pos ? theme.colors.primary : theme.colors.surfaceVariant,
-              },
+              posFilter === pos
+                ? { backgroundColor: theme.colors.primary }
+                : { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EEEEEE' },
             ]}
           >
-            <Text
-              style={[
-                styles.filterPillText,
-                { color: posFilter === pos ? theme.colors.onPrimary : theme.colors.onSurfaceVariant },
-              ]}
-            >
+            <Text style={[styles.filterPillText, { color: posFilter === pos ? '#FFFFFF' : '#888888' }]}>
               {pos}
             </Text>
           </TouchableOpacity>
@@ -107,11 +94,12 @@ export default function AllPlayersScreen() {
         ItemSeparatorComponent={() => <View style={{ height: SPACING.sm }} />}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); setTimeout(() => setRefreshing(false), 1000); }} tintColor={theme.colors.primary} />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={{ color: theme.colors.onSurfaceVariant }}>No players found</Text>
+            <MaterialCommunityIcons name="account-off-outline" size={48} color="#CCCCCC" />
+            <Text style={styles.emptyText}>No players found</Text>
           </View>
         }
       />
@@ -120,47 +108,24 @@ export default function AllPlayersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.md },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md, gap: SPACING.sm },
-  screenTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
-  countBadge: { fontSize: 18, fontWeight: '700' },
-  searchbar: { marginBottom: SPACING.md, borderRadius: 10, elevation: 0 },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.xs,
-    marginBottom: SPACING.md,
-  },
-  filterPill: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
+  container: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.lg },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.md },
+  screenTitle: { fontSize: 26, fontWeight: '800' },
+  countBadge: { minWidth: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  countBadgeText: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
+  searchbar: { backgroundColor: '#FFFFFF', borderRadius: 12, marginBottom: SPACING.sm, borderWidth: 1, borderColor: '#EEEEEE' },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, marginBottom: SPACING.md },
+  filterPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   filterPillText: { fontSize: 12, fontWeight: '700' },
   list: { paddingBottom: SPACING.xl },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: SPACING.md,
-    gap: SPACING.md,
-    borderWidth: 1,
-    borderColor: '#1C2437',
-  },
-  jerseyBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: '#00E67614',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#00E67630',
-  },
-  jerseyNum: { fontSize: 14, fontWeight: '900' },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 16, padding: SPACING.md, gap: SPACING.md },
+  jerseyBadge: { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  jerseyNum: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
   cardBody: { flex: 1 },
   playerName: { fontSize: 15, fontWeight: '700' },
-  playerMeta: { fontSize: 12, marginTop: 2 },
-  orgLabel: { fontSize: 11, marginTop: 1 },
-  empty: { alignItems: 'center', paddingTop: SPACING.xl * 2 },
+  playerMeta: { fontSize: 12, color: '#AAAAAA', marginTop: 2 },
+  orgLabel: { fontSize: 11, color: '#CCCCCC', marginTop: 1 },
+  cardRight: { alignItems: 'flex-end' },
+  empty: { alignItems: 'center', gap: SPACING.sm, paddingTop: SPACING.xl * 2 },
+  emptyText: { fontSize: 15, color: '#AAAAAA' },
 });

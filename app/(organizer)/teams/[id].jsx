@@ -22,7 +22,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StatusPill from '../../../components/StatusPill';
 import { TEAMS, PLAYERS } from '../../../data/mockData';
-import { SPACING } from '../../../theme';
+import { SPACING, CARD_SHADOW } from '../../../theme';
 
 const POSITIONS = ['QB', 'WR', 'C', 'Rusher', 'DB'];
 const ROLES = ['None', 'Captain', 'Vice-Captain'];
@@ -157,7 +157,7 @@ export default function OrganizerTeamDetailScreen() {
 
       {/* Deletion pending banner */}
       {isDeletePending && (
-        <View style={[styles.alertBanner, { backgroundColor: '#FF444418', borderColor: '#FF444455' }]}>
+        <View style={[styles.alertBanner, { backgroundColor: theme.colors.primaryContainer, borderColor: theme.colors.primary }]}>
           <MaterialCommunityIcons name="alert-circle-outline" size={14} color={theme.colors.error} />
           <Text style={[styles.alertBannerText, { color: theme.colors.error }]}>
             Deletion pending admin approval — team is read-only
@@ -166,7 +166,7 @@ export default function OrganizerTeamDetailScreen() {
       )}
 
       {/* ── Team Info Card ── */}
-      <Surface style={[styles.infoCard, { backgroundColor: theme.colors.surface }]} elevation={0}>
+      <Surface style={[styles.infoCard, { backgroundColor: theme.colors.surface }, CARD_SHADOW]} elevation={0}>
         {/* Team name — inline editable */}
         <View style={styles.infoRow}>
           <Text style={[styles.infoLabel, { color: theme.colors.onSurfaceVariant }]}>
@@ -279,7 +279,7 @@ export default function OrganizerTeamDetailScreen() {
         <View style={styles.statusRow}>
           <StatusPill status={isDeletePending ? 'Pending' : team.status} />
           {isDeletePending && (
-            <Text style={[styles.deletePendingLabel, { color: '#FFB300' }]}>
+            <Text style={[styles.deletePendingLabel, { color: theme.colors.tertiary }]}>
               Deletion pending
             </Text>
           )}
@@ -326,8 +326,9 @@ export default function OrganizerTeamDetailScreen() {
               style={[
                 styles.playerRow,
                 { backgroundColor: theme.colors.surface },
-                isPending && { borderColor: '#FFB30044' },
-                isRemovePending && { borderColor: '#FF444444', opacity: 0.7 },
+                CARD_SHADOW,
+                isPending && { borderColor: theme.colors.tertiary + '44' },
+                isRemovePending && { borderColor: theme.colors.error + '44', opacity: 0.7 },
               ]}
               elevation={0}
             >
@@ -358,8 +359,10 @@ export default function OrganizerTeamDetailScreen() {
 
                 {isPending && !isRemovePending && (
                   <View style={styles.pendingRow}>
-                    <MaterialCommunityIcons name="clock-outline" size={11} color="#FFB300" />
-                    <Text style={styles.pendingLabel}>Awaiting admin approval</Text>
+                    <MaterialCommunityIcons name="clock-outline" size={11} color={theme.colors.tertiary} />
+                    <Text style={[styles.pendingLabel, { color: theme.colors.tertiary }]}>
+                      Awaiting admin approval
+                    </Text>
                   </View>
                 )}
                 {isRemovePending && (
@@ -518,7 +521,7 @@ export default function OrganizerTeamDetailScreen() {
                           {
                             color:
                               addForm.role === role
-                                ? '#001A09'
+                                ? theme.colors.onPrimary
                                 : theme.colors.onSurfaceVariant,
                           },
                         ]}
@@ -603,7 +606,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#1C2437',
+    borderColor: '#FFFFFF20',
     marginBottom: SPACING.xs,
   },
   infoRow: {
@@ -702,7 +705,7 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     gap: SPACING.md,
     borderWidth: 1,
-    borderColor: '#1C2437',
+    borderColor: '#FFFFFF20',
   },
   jerseyBadge: {
     width: 44,
@@ -719,7 +722,7 @@ const styles = StyleSheet.create({
   rolePillText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
   playerMeta: { fontSize: 12 },
   pendingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  pendingLabel: { fontSize: 11, fontWeight: '600', color: '#FFB300' },
+  pendingLabel: { fontSize: 11, fontWeight: '600' },
   playerActions: { alignItems: 'flex-end', gap: SPACING.xs },
   removeBtn: {
     width: 30,

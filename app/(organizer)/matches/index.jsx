@@ -1,28 +1,15 @@
 // app/(organizer)/matches/index.jsx
 import React, { useState, useMemo } from 'react';
 import {
-  View,
-  FlatList,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
+  View, FlatList, StyleSheet, TouchableOpacity,
+  Modal, ScrollView, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import {
-  Text,
-  Surface,
-  useTheme,
-  FAB,
-  Button,
-  TextInput,
-  Divider,
-} from 'react-native-paper';
+import { Text, useTheme, FAB, Button, TextInput, Divider } from 'react-native-paper';
 import { useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StatusPill from '../../../components/StatusPill';
-import { MATCHES, TOURNAMENTS, TEAMS } from '../../../data/mockData';
-import { SPACING } from '../../../theme';
+import { MATCHES } from '../../../data/mockData';
+import { SPACING, CARD_SHADOW } from '../../../theme';
 
 const FILTER_TABS = ['All', 'Upcoming', 'Live', 'Completed'];
 
@@ -31,24 +18,15 @@ export default function MatchesScreen() {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState('All');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [form, setForm] = useState({ tournament: '', homeTeam: '', awayTeam: '', date: '', time: '', location: '' });
 
-  // Add match form state
-  const [form, setForm] = useState({
-    tournament: '',
-    homeTeam: '',
-    awayTeam: '',
-    date: '',
-    time: '',
-    location: '',
-  });
-
-  const filtered = useMemo(() => {
-    if (activeFilter === 'All') return MATCHES;
-    return MATCHES.filter((m) => m.status === activeFilter);
-  }, [activeFilter]);
+  const filtered = useMemo(() =>
+    activeFilter === 'All' ? MATCHES : MATCHES.filter((m) => m.status === activeFilter),
+    [activeFilter]
+  );
 
   const handleAddMatch = () => {
-    // TODO: POST /matches  — no approval needed for organizer
+    // TODO: POST /matches
     setShowAddModal(false);
     setForm({ tournament: '', homeTeam: '', awayTeam: '', date: '', time: '', location: '' });
   };
@@ -57,57 +35,53 @@ export default function MatchesScreen() {
     const isLive = item.status === 'Live';
     return (
       <TouchableOpacity
-        onPress={() =>
-          router.push({ pathname: '/(organizer)/matches/[id]', params: { id: item.id } })
-        }
-        activeOpacity={0.75}
+        onPress={() => router.push({ pathname: '/(organizer)/matches/[id]', params: { id: item.id } })}
+        activeOpacity={0.7}
       >
-        <Surface
-          style={[
-            styles.card,
-            { backgroundColor: theme.colors.surface },
-            isLive && styles.liveCard,
-          ]}
-          elevation={0}
-        >
-          <View style={styles.cardTop}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.matchup, { color: theme.colors.onSurface }]}>
-                {item.homeTeam} vs {item.awayTeam}
-              </Text>
-              <Text style={[styles.matchMeta, { color: theme.colors.onSurfaceVariant }]}>
-                {item.date} · {item.time} · {item.location}
-              </Text>
-              <Text style={[styles.tournamentLabel, { color: theme.colors.onSurfaceVariant }]}>
-                {item.tournamentName}
-              </Text>
+        <View style={[styles.card, CARD_SHADOW, isLive && styles.liveCard]}>
+          {isLive && <View style={[styles.liveBar, { backgroundColor: theme.colors.primary }]} />}
+
+          <View style={styles.cardInner}>
+            <View style={styles.cardTop}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.matchup, { color: theme.colors.onSurface }]}>
+                  {item.homeTeam} vs {item.awayTeam}
+                </Text>
+                <Text style={styles.matchMeta}>{item.date} · {item.time} · {item.location}</Text>
+                <Text style={styles.tournamentLabel}>{item.tournamentName}</Text>
+              </View>
+              <StatusPill status={item.status} />
             </View>
-            <StatusPill status={item.status} />
+
+            {isLive && (
+              <View style={[styles.liveScoreRow, { backgroundColor: '#1A1A1A', borderRadius: 12 }]}>
+                <View style={styles.scoreBlock}>
+                  <Text style={styles.scoreTeamLabel} numberOfLines={1}>{item.homeTeam}</Text>
+                  <Text style={[styles.scoreNum, { color: theme.colors.primary }]}>{item.homeScore}</Text>
+                </View>
+                <Text style={styles.scoreSep}>—</Text>
+                <View style={[styles.scoreBlock, { alignItems: 'flex-end' }]}>
+                  <Text style={styles.scoreTeamLabel} numberOfLines={1}>{item.awayTeam}</Text>
+                  <Text style={[styles.scoreNum, { color: theme.colors.primary }]}>{item.awayScore}</Text>
+                </View>
+              </View>
+            )}
+
+            {item.status === 'Upcoming' && (
+              <Button
+                mode="contained"
+                compact
+                onPress={() => router.push({ pathname: '/(organizer)/matches/live/[id]', params: { id: item.id } })}
+                buttonColor={theme.colors.primary}
+                textColor="#FFFFFF"
+                style={styles.startBtn}
+                icon="play"
+              >
+                Start Match
+              </Button>
+            )}
           </View>
-
-          {isLive && (
-            <View style={[styles.liveScore, { borderTopColor: theme.colors.outline }]}>
-              <ScoreBlock team={item.homeTeam} score={item.homeScore} theme={theme} />
-              <Text style={[styles.scoreDash, { color: theme.colors.onSurfaceVariant }]}>—</Text>
-              <ScoreBlock team={item.awayTeam} score={item.awayScore} theme={theme} isAway />
-            </View>
-          )}
-
-          {item.status === 'Upcoming' && (
-            <Button
-              mode="contained"
-              compact
-              onPress={() =>
-                router.push({ pathname: '/(organizer)/matches/live/[id]', params: { id: item.id } })
-              }
-              buttonColor={theme.colors.primary}
-              textColor={theme.colors.onPrimary}
-              style={styles.startBtn}
-            >
-              Start Match
-            </Button>
-          )}
-        </Surface>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -124,18 +98,12 @@ export default function MatchesScreen() {
             onPress={() => setActiveFilter(tab)}
             style={[
               styles.filterTab,
-              {
-                backgroundColor:
-                  activeFilter === tab ? theme.colors.primary : theme.colors.surfaceVariant,
-              },
+              activeFilter === tab
+                ? { backgroundColor: theme.colors.primary }
+                : { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EEEEEE' },
             ]}
           >
-            <Text
-              style={[
-                styles.filterTabText,
-                { color: activeFilter === tab ? theme.colors.onPrimary : theme.colors.onSurfaceVariant },
-              ]}
-            >
+            <Text style={[styles.filterTabText, { color: activeFilter === tab ? '#FFFFFF' : '#888888' }]}>
               {tab}
             </Text>
           </TouchableOpacity>
@@ -150,9 +118,8 @@ export default function MatchesScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={{ color: theme.colors.onSurfaceVariant }}>
-              No {activeFilter.toLowerCase()} matches
-            </Text>
+            <MaterialCommunityIcons name="whistle-outline" size={48} color="#CCCCCC" />
+            <Text style={styles.emptyText}>No {activeFilter.toLowerCase()} matches</Text>
           </View>
         }
       />
@@ -161,26 +128,18 @@ export default function MatchesScreen() {
         icon="plus"
         label="Add Match"
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        color={theme.colors.onPrimary}
+        color="#FFFFFF"
         onPress={() => setShowAddModal(true)}
       />
 
       {/* Add Match Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
-            <Surface
-              style={[styles.modalSheet, { backgroundColor: theme.colors.surface }]}
-              elevation={4}
-            >
-              <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>
-                Add New Match
-              </Text>
-              <Divider style={{ backgroundColor: theme.colors.outline, marginBottom: SPACING.md }} />
-
+            <View style={styles.modalSheet}>
+              <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>Add New Match</Text>
+              <Text style={styles.modalSub}>No approval needed — direct save</Text>
+              <Divider style={{ marginVertical: SPACING.md }} />
               <ScrollView showsVerticalScrollIndicator={false}>
                 {[
                   { key: 'tournament', label: 'Tournament' },
@@ -196,34 +155,22 @@ export default function MatchesScreen() {
                     value={form[key]}
                     onChangeText={(val) => setForm((f) => ({ ...f, [key]: val }))}
                     mode="outlined"
-                    outlineColor={theme.colors.outline}
+                    outlineColor="#EEEEEE"
                     activeOutlineColor={theme.colors.primary}
                     textColor={theme.colors.onSurface}
                     style={styles.formInput}
                   />
                 ))}
               </ScrollView>
-
               <View style={styles.modalActions}>
-                <Button
-                  mode="contained"
-                  onPress={handleAddMatch}
-                  buttonColor={theme.colors.primary}
-                  textColor={theme.colors.onPrimary}
-                  style={{ flex: 1 }}
-                >
+                <Button mode="contained" onPress={handleAddMatch} buttonColor={theme.colors.primary} textColor="#FFFFFF" style={{ flex: 1 }} contentStyle={{ paddingVertical: 4 }}>
                   Add Match
                 </Button>
-                <Button
-                  mode="outlined"
-                  onPress={() => setShowAddModal(false)}
-                  style={{ flex: 1 }}
-                  textColor={theme.colors.onSurface}
-                >
+                <Button mode="outlined" onPress={() => setShowAddModal(false)} style={{ flex: 1 }} textColor={theme.colors.onSurface} contentStyle={{ paddingVertical: 4 }}>
                   Cancel
                 </Button>
               </View>
-            </Surface>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -231,73 +178,37 @@ export default function MatchesScreen() {
   );
 }
 
-function ScoreBlock({ team, score, theme, isAway }) {
-  return (
-    <View style={[styles.scoreBlock, isAway && { alignItems: 'flex-end' }]}>
-      <Text style={[styles.scoreTeam, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
-        {team}
-      </Text>
-      <Text style={[styles.scoreNum, { color: theme.colors.primary }]}>{score}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.md },
-  screenTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, marginBottom: SPACING.md },
-  filterRow: {
-    flexDirection: 'row',
-    gap: SPACING.xs,
-    marginBottom: SPACING.md,
-    flexWrap: 'wrap',
-  },
-  filterTab: { paddingHorizontal: SPACING.md, paddingVertical: 6, borderRadius: 20 },
+  container: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.lg },
+  screenTitle: { fontSize: 26, fontWeight: '800', marginBottom: SPACING.md },
+  filterRow: { flexDirection: 'row', gap: SPACING.xs, marginBottom: SPACING.md, flexWrap: 'wrap' },
+  filterTab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
   filterTabText: { fontSize: 13, fontWeight: '700' },
   list: { paddingBottom: 100 },
-  card: {
-    borderRadius: 14,
-    padding: SPACING.md,
-    borderWidth: 1,
-    borderColor: '#1C2437',
-    gap: SPACING.sm,
-  },
-  liveCard: { borderColor: '#00E67655' },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 16, overflow: 'hidden' },
+  liveCard: { borderWidth: 1, borderColor: '#E8302A22' },
+  liveBar: { height: 4, width: '100%' },
+  cardInner: { padding: SPACING.md, gap: SPACING.sm },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm },
   matchup: { fontSize: 15, fontWeight: '700' },
-  matchMeta: { fontSize: 12, marginTop: 2 },
-  tournamentLabel: { fontSize: 11, marginTop: 1 },
-  liveScore: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    paddingTop: SPACING.sm,
-    gap: SPACING.md,
+  matchMeta: { fontSize: 12, color: '#AAAAAA', marginTop: 2 },
+  tournamentLabel: { fontSize: 11, color: '#CCCCCC', marginTop: 1 },
+  liveScoreRow: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', padding: SPACING.md,
   },
   scoreBlock: { flex: 1 },
-  scoreTeam: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  scoreNum: { fontSize: 32, fontWeight: '900' },
-  scoreDash: { fontSize: 20, fontWeight: '300' },
-  startBtn: { alignSelf: 'flex-start', borderRadius: 8 },
-  fab: {
-    position: 'absolute',
-    bottom: SPACING.xl,
-    right: SPACING.md,
-    borderRadius: 16,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: '#00000088',
-  },
-  modalSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: SPACING.lg,
-    maxHeight: '85%',
-  },
-  modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: SPACING.sm },
-  formInput: { backgroundColor: 'transparent', marginBottom: SPACING.sm },
+  scoreTeamLabel: { fontSize: 10, fontWeight: '700', color: '#AAAAAA', textTransform: 'uppercase' },
+  scoreNum: { fontSize: 36, fontWeight: '900' },
+  scoreSep: { fontSize: 20, color: '#444444', fontWeight: '300' },
+  startBtn: { alignSelf: 'flex-start', borderRadius: 20 },
+  empty: { alignItems: 'center', gap: SPACING.sm, paddingTop: SPACING.xl * 2 },
+  emptyText: { fontSize: 15, color: '#AAAAAA' },
+  fab: { position: 'absolute', bottom: SPACING.xl, right: SPACING.md, borderRadius: 16 },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000055' },
+  modalSheet: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.lg, maxHeight: '85%' },
+  modalTitle: { fontSize: 20, fontWeight: '800' },
+  modalSub: { fontSize: 13, color: '#AAAAAA', marginTop: 2 },
+  formInput: { backgroundColor: '#FFFFFF', marginBottom: SPACING.sm },
   modalActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.md },
-  empty: { alignItems: 'center', paddingTop: SPACING.xl * 2 },
 });

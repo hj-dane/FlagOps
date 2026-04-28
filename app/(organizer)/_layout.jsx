@@ -1,3 +1,4 @@
+// app/(organizer)/_layout.jsx
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { useTheme } from 'react-native-paper';
@@ -11,18 +12,18 @@ export default function OrganizerLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.outline,
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#EEEEEE',
           borderTopWidth: 1,
-          height: 60,
+          height: 62,
           paddingBottom: 8,
+          paddingTop: 4,
         },
         tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
+        tabBarInactiveTintColor: '#AAAAAA',
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
       }}
     >
-      {/* ── Visible tabs ── */}
       <Tabs.Screen
         name="home/index"
         options={{
@@ -95,8 +96,6 @@ export default function OrganizerLayout() {
           ),
         }}
       />
-
-      {/* ── Hidden drill-down screens (no tab entry) ── */}
       <Tabs.Screen name="matches/[id]"        options={{ href: null }} />
       <Tabs.Screen name="matches/live/[id]"   options={{ href: null }} />
       <Tabs.Screen name="tournaments/[id]"    options={{ href: null }} />
