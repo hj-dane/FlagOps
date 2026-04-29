@@ -11,7 +11,7 @@ import { PLAYERS, MATCH_STATS, MATCHES } from '../../../data/mockData';
 import { SPACING, CARD_SHADOW } from '../../../theme';
 
 const STAT_TYPES = ['TD', 'INT', 'Flag Pulled', 'Sack', 'Completion', 'Rush'];
-const ALL_STATS = Object.values(MATCH_STATS).flat();
+const ALL_STATS = Object.values(MATCH_STATS || {}).flat();
 
 function isStatReadOnly(stat) {
   const match = MATCHES.find((m) => m.id === stat.matchId);
