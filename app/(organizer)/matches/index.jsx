@@ -180,6 +180,9 @@ export default function MatchesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.lg },
+  scrollContent: {
+    paddingHorizontal: SPACING.lg,
+  },
   screenTitle: { fontSize: 26, fontWeight: '800', marginBottom: SPACING.md },
   filterRow: { flexDirection: 'row', gap: SPACING.xs, marginBottom: SPACING.md, flexWrap: 'wrap' },
   filterTab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },

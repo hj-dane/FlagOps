@@ -11,7 +11,7 @@ import { PLAYERS, MATCH_STATS, MATCHES } from '../../../data/mockData';
 import { SPACING, CARD_SHADOW } from '../../../theme';
 
 const STAT_TYPES = ['TD', 'INT', 'Flag Pulled', 'Sack', 'Completion', 'Rush'];
-const ALL_STATS = Object.values(MATCH_STATS).flat();
+const ALL_STATS = Object.values(MATCH_STATS || {}).flat();
 
 function isStatReadOnly(stat) {
   const match = MATCHES.find((m) => m.id === stat.matchId);
@@ -227,6 +227,9 @@ export default function PlayerStatsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.lg },
+  scrollContent: {
+    paddingHorizontal: SPACING.lg,
+  },
   screenTitle: { fontSize: 26, fontWeight: '800', marginBottom: SPACING.md },
   searchbar: { backgroundColor: '#FFFFFF', borderRadius: 12, marginBottom: SPACING.md, borderWidth: 1, borderColor: '#EEEEEE' },
   playerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 14, padding: SPACING.md, gap: SPACING.md },

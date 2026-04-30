@@ -17,6 +17,11 @@ export const mockUsers = [
   },
 ];
 
+export const addUser = (user) => {
+  mockUsers.push(user);
+  return user;
+};
+
 export const mockOrganizations = [
   {
     id: 'org_1',
