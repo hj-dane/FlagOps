@@ -1,23 +1,10 @@
 // app/(organizer)/teams/[id].jsx
 import React, { useState } from 'react';
 import {
-  View,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
+  View, ScrollView, StyleSheet, TouchableOpacity,
+  Alert, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import {
-  Text,
-  Surface,
-  useTheme,
-  Button,
-  TextInput,
-  Divider,
-} from 'react-native-paper';
+import { Text, useTheme, Button, TextInput, Divider } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StatusPill from '../../../components/StatusPill';
@@ -35,25 +22,13 @@ export default function OrganizerTeamDetailScreen() {
   const team = TEAMS.find((t) => t.id === id);
   const initialRoster = PLAYERS.filter((p) => p.teamId === id);
 
-  // ── Inline editable team fields (direct save, no approval) ──
   const [teamName, setTeamName] = useState(team?.name ?? '');
   const [jerseyColor, setJerseyColor] = useState(team?.jerseyColor ?? '');
   const [editingField, setEditingField] = useState(null); // 'name' | 'color' | null
-
-  // ── Roster state ──
   const [roster, setRoster] = useState(initialRoster);
   const [deletePending, setDeletePending] = useState(false);
-
-  // ── Add Player modal state ──
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({
-    name: '',
-    jerseyNumber: '',
-    position: POSITIONS[0],
-    role: 'None',
-  });
-
-  // ── Remove pending tracking ──
+  const [addForm, setAddForm] = useState({ name: '', jerseyNumber: '', position: POSITIONS[0], role: 'None' });
   const [removePendingIds, setRemovePendingIds] = useState([]);
 
   if (!team) {
@@ -64,28 +39,16 @@ export default function OrganizerTeamDetailScreen() {
     );
   }
 
-  // ── Inline save handlers ──
-  const saveField = (field) => {
-    // TODO: PATCH /teams/:id  { [field]: value }  — direct save, no approval
+  const saveField = () => {
+    // TODO: PATCH /teams/:id — direct save, no approval needed
     setEditingField(null);
   };
 
-  // ── Add Player ──
   const handleAddPlayer = () => {
-    // Validate jersey number uniqueness within team
-    const duplicate = roster.some(
-      (p) => String(p.jerseyNumber) === addForm.jerseyNumber.trim()
-    );
-    if (duplicate) {
-      Alert.alert('Duplicate jersey number', 'That number is already taken on this team.');
-      return;
-    }
-    if (!addForm.name.trim()) {
-      Alert.alert('Name required');
-      return;
-    }
-
-    // TODO: POST /players  — status = 'Pending', push to admin
+    const duplicate = roster.some((p) => String(p.jerseyNumber) === addForm.jerseyNumber.trim());
+    if (duplicate) { Alert.alert('Duplicate jersey number', 'That number is already taken on this team.'); return; }
+    if (!addForm.name.trim()) { Alert.alert('Name required'); return; }
+    // TODO: POST /players — status = 'Pending', push to admin
     const newPlayer = {
       id: `player-new-${Date.now()}`,
       teamId: id,
@@ -98,51 +61,30 @@ export default function OrganizerTeamDetailScreen() {
       status: 'Pending',
       stats: { tds: 0, ints: 0, flagsPulled: 0, sacks: 0, matchesPlayed: 0 },
     };
-
     setRoster((prev) => [...prev, newPlayer]);
     setShowAddModal(false);
     setAddForm({ name: '', jerseyNumber: '', position: POSITIONS[0], role: 'None' });
   };
 
-  // ── Remove Player ──
   const handleRemovePlayer = (player) => {
-    Alert.alert(
-      'Remove Player',
-      `Remove ${player.name} from the roster? This requires admin approval.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit Request',
-          style: 'destructive',
-          onPress: () => {
-            // TODO: POST /change_requests  { type: 'remove_player', playerId: player.id }
-            setRemovePendingIds((prev) => [...prev, player.id]);
-          },
-        },
-      ]
-    );
+    Alert.alert('Remove Player', `Remove ${player.name}? This requires admin approval.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Submit Request', style: 'destructive', onPress: () => {
+        // TODO: POST /change_requests { type: 'remove_player', playerId: player.id }
+        setRemovePendingIds((prev) => [...prev, player.id]);
+      }},
+    ]);
   };
 
-  // ── Delete Team ──
   const handleDeleteTeam = () => {
-    Alert.alert(
-      'Delete Team',
-      `Delete "${teamName}"? This requires admin approval.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit Request',
-          style: 'destructive',
-          onPress: () => {
-            // TODO: POST /change_requests  { type: 'delete_team', teamId: id }
-            setDeletePending(true);
-          },
-        },
-      ]
-    );
+    Alert.alert('Delete Team', `Delete "${teamName}"? This requires admin approval.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Submit Request', style: 'destructive', onPress: () => {
+        // TODO: POST /change_requests { type: 'delete_team', teamId: id }
+        setDeletePending(true);
+      }},
+    ]);
   };
-
-  const isDeletePending = deletePending;
 
   return (
     <ScrollView
@@ -156,22 +98,30 @@ export default function OrganizerTeamDetailScreen() {
       </TouchableOpacity>
 
       {/* Deletion pending banner */}
-      {isDeletePending && (
-        <View style={[styles.alertBanner, { backgroundColor: theme.colors.primaryContainer, borderColor: theme.colors.primary }]}>
-          <MaterialCommunityIcons name="alert-circle-outline" size={14} color={theme.colors.error} />
-          <Text style={[styles.alertBannerText, { color: theme.colors.error }]}>
+      {deletePending && (
+        <View style={styles.alertBanner}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={14} color="#E65100" />
+          <Text style={styles.alertBannerText}>
             Deletion pending admin approval — team is read-only
           </Text>
         </View>
       )}
 
       {/* ── Team Info Card ── */}
-      <Surface style={[styles.infoCard, { backgroundColor: theme.colors.surface }, CARD_SHADOW]} elevation={0}>
-        {/* Team name — inline editable */}
+      <View style={[styles.infoCard, CARD_SHADOW]}>
+        {/* Status row */}
+        <View style={styles.infoStatusRow}>
+          <StatusPill status={deletePending ? 'Pending' : team.status} />
+          {deletePending && (
+            <Text style={styles.deletePendingLabel}>Deletion pending</Text>
+          )}
+        </View>
+
+        <Divider style={{ marginVertical: SPACING.sm }} />
+
+        {/* Team Name — inline editable */}
         <View style={styles.infoRow}>
-          <Text style={[styles.infoLabel, { color: theme.colors.onSurfaceVariant }]}>
-            Team Name
-          </Text>
+          <Text style={styles.infoLabel}>Team Name</Text>
           {editingField === 'name' ? (
             <View style={styles.inlineEditRow}>
               <TextInput
@@ -179,50 +129,44 @@ export default function OrganizerTeamDetailScreen() {
                 onChangeText={setTeamName}
                 mode="outlined"
                 dense
-                outlineColor={theme.colors.outline}
+                outlineColor="#EEEEEE"
                 activeOutlineColor={theme.colors.primary}
                 textColor={theme.colors.onSurface}
                 style={styles.inlineInput}
                 autoFocus
               />
               <TouchableOpacity
-                onPress={() => saveField('name')}
-                style={[styles.inlineSaveBtn, { backgroundColor: theme.colors.primary }]}
+                onPress={saveField}
+                style={[styles.inlineActionBtn, { backgroundColor: theme.colors.primary }]}
               >
-                <MaterialCommunityIcons name="check" size={16} color={theme.colors.onPrimary} />
+                <MaterialCommunityIcons name="check" size={16} color="#FFFFFF" />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => { setTeamName(team.name); setEditingField(null); }}
-                style={[styles.inlineCancelBtn, { backgroundColor: theme.colors.surfaceVariant }]}
+                style={[styles.inlineActionBtn, { backgroundColor: '#F0F0F0' }]}
               >
-                <MaterialCommunityIcons name="close" size={16} color={theme.colors.onSurface} />
+                <MaterialCommunityIcons name="close" size={16} color="#888888" />
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity
               style={styles.inlineValueRow}
-              onPress={() => !isDeletePending && setEditingField('name')}
-              disabled={isDeletePending}
+              onPress={() => !deletePending && setEditingField('name')}
+              disabled={deletePending}
             >
               <Text style={[styles.infoValue, { color: theme.colors.onSurface }]}>{teamName}</Text>
-              {!isDeletePending && (
-                <MaterialCommunityIcons
-                  name="pencil-outline"
-                  size={15}
-                  color={theme.colors.onSurfaceVariant}
-                />
+              {!deletePending && (
+                <MaterialCommunityIcons name="pencil-outline" size={15} color="#CCCCCC" />
               )}
             </TouchableOpacity>
           )}
         </View>
 
-        <Divider style={{ backgroundColor: theme.colors.outline }} />
+        <Divider />
 
-        {/* Jersey color — inline editable */}
+        {/* Jersey Color — inline editable */}
         <View style={styles.infoRow}>
-          <Text style={[styles.infoLabel, { color: theme.colors.onSurfaceVariant }]}>
-            Jersey Color
-          </Text>
+          <Text style={styles.infoLabel}>Jersey Color</Text>
           {editingField === 'color' ? (
             <View style={styles.inlineEditRow}>
               <TextInput
@@ -230,90 +174,70 @@ export default function OrganizerTeamDetailScreen() {
                 onChangeText={setJerseyColor}
                 mode="outlined"
                 dense
-                outlineColor={theme.colors.outline}
+                outlineColor="#EEEEEE"
                 activeOutlineColor={theme.colors.primary}
                 textColor={theme.colors.onSurface}
                 style={styles.inlineInput}
                 autoFocus
               />
               <TouchableOpacity
-                onPress={() => saveField('color')}
-                style={[styles.inlineSaveBtn, { backgroundColor: theme.colors.primary }]}
+                onPress={saveField}
+                style={[styles.inlineActionBtn, { backgroundColor: theme.colors.primary }]}
               >
-                <MaterialCommunityIcons name="check" size={16} color={theme.colors.onPrimary} />
+                <MaterialCommunityIcons name="check" size={16} color="#FFFFFF" />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => { setJerseyColor(team.jerseyColor); setEditingField(null); }}
-                style={[styles.inlineCancelBtn, { backgroundColor: theme.colors.surfaceVariant }]}
+                style={[styles.inlineActionBtn, { backgroundColor: '#F0F0F0' }]}
               >
-                <MaterialCommunityIcons name="close" size={16} color={theme.colors.onSurface} />
+                <MaterialCommunityIcons name="close" size={16} color="#888888" />
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity
               style={styles.inlineValueRow}
-              onPress={() => !isDeletePending && setEditingField('color')}
-              disabled={isDeletePending}
+              onPress={() => !deletePending && setEditingField('color')}
+              disabled={deletePending}
             >
               <Text style={[styles.infoValue, { color: theme.colors.onSurface }]}>{jerseyColor}</Text>
-              {!isDeletePending && (
-                <MaterialCommunityIcons
-                  name="pencil-outline"
-                  size={15}
-                  color={theme.colors.onSurfaceVariant}
-                />
+              {!deletePending && (
+                <MaterialCommunityIcons name="pencil-outline" size={15} color="#CCCCCC" />
               )}
             </TouchableOpacity>
           )}
         </View>
 
-        <Divider style={{ backgroundColor: theme.colors.outline }} />
+        <Divider />
 
-        {/* Read-only fields */}
+        {/* Read-only meta */}
         <View style={styles.metaGrid}>
-          <MetaChip label="Players" value={roster.length} theme={theme} />
-          <MetaChip label="Org" value={team.orgName} theme={theme} />
-          <MetaChip label="Created" value={team.createdAt} theme={theme} />
+          <MetaChip label="Players" value={roster.length} />
+          <MetaChip label="Org" value={team.orgName} />
+          <MetaChip label="Created" value={team.createdAt} />
         </View>
+      </View>
 
-        <View style={styles.statusRow}>
-          <StatusPill status={isDeletePending ? 'Pending' : team.status} />
-          {isDeletePending && (
-            <Text style={[styles.deletePendingLabel, { color: theme.colors.tertiary }]}>
-              Deletion pending
-            </Text>
-          )}
-        </View>
-      </Surface>
-
-      {/* ── Roster ── */}
+      {/* ── Roster Header ── */}
       <View style={styles.rosterHeader}>
-        <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
           Roster ({roster.length})
         </Text>
-        {!isDeletePending && (
+        {!deletePending && (
           <TouchableOpacity
             onPress={() => setShowAddModal(true)}
-            style={[styles.addPlayerBtn, { backgroundColor: theme.colors.primary + '22', borderColor: theme.colors.primary + '55' }]}
+            style={[styles.addPlayerBtn, { backgroundColor: theme.colors.primary }]}
           >
-            <MaterialCommunityIcons name="plus" size={14} color={theme.colors.primary} />
-            <Text style={[styles.addPlayerBtnText, { color: theme.colors.primary }]}>
-              Add Player
-            </Text>
+            <MaterialCommunityIcons name="plus" size={14} color="#FFFFFF" />
+            <Text style={styles.addPlayerBtnText}>Add Player</Text>
           </TouchableOpacity>
         )}
       </View>
 
+      {/* ── Roster List ── */}
       {roster.length === 0 ? (
         <View style={styles.emptyRoster}>
-          <MaterialCommunityIcons
-            name="account-off-outline"
-            size={36}
-            color={theme.colors.onSurfaceVariant}
-          />
-          <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-            No players on this team
-          </Text>
+          <MaterialCommunityIcons name="account-off-outline" size={40} color="#CCCCCC" />
+          <Text style={styles.emptyText}>No players on this team</Text>
         </View>
       ) : (
         roster.map((player) => {
@@ -321,22 +245,22 @@ export default function OrganizerTeamDetailScreen() {
           const isRemovePending = removePendingIds.includes(player.id);
 
           return (
-            <Surface
+            <View
               key={player.id}
               style={[
                 styles.playerRow,
-                { backgroundColor: theme.colors.surface },
                 CARD_SHADOW,
-                isPending && { borderColor: theme.colors.tertiary + '44' },
-                isRemovePending && { borderColor: theme.colors.error + '44', opacity: 0.7 },
+                isRemovePending && { opacity: 0.6 },
               ]}
-              elevation={0}
             >
+              {/* Red left accent for captain */}
+              {player.role && (
+                <View style={[styles.roleAccent, { backgroundColor: theme.colors.primary }]} />
+              )}
+
               {/* Jersey badge */}
-              <View style={[styles.jerseyBadge, { backgroundColor: theme.colors.primary + '18' }]}>
-                <Text style={[styles.jerseyNum, { color: theme.colors.primary }]}>
-                  #{player.jerseyNumber}
-                </Text>
+              <View style={[styles.jerseyBadge, { backgroundColor: theme.colors.primary }]}>
+                <Text style={styles.jerseyNum}>#{player.jerseyNumber}</Text>
               </View>
 
               {/* Player info */}
@@ -346,23 +270,19 @@ export default function OrganizerTeamDetailScreen() {
                     {player.name}
                   </Text>
                   {player.role && (
-                    <View style={[styles.rolePill, { backgroundColor: theme.colors.secondary + '22' }]}>
-                      <Text style={[styles.rolePillText, { color: theme.colors.secondary }]}>
+                    <View style={[styles.rolePill, { backgroundColor: '#FFEBEE' }]}>
+                      <Text style={[styles.rolePillText, { color: theme.colors.primary }]}>
                         {player.role}
                       </Text>
                     </View>
                   )}
                 </View>
-                <Text style={[styles.playerMeta, { color: theme.colors.onSurfaceVariant }]}>
-                  {player.positions.join(' / ')}
-                </Text>
+                <Text style={styles.playerMeta}>{player.positions.join(' / ')}</Text>
 
                 {isPending && !isRemovePending && (
                   <View style={styles.pendingRow}>
-                    <MaterialCommunityIcons name="clock-outline" size={11} color={theme.colors.tertiary} />
-                    <Text style={[styles.pendingLabel, { color: theme.colors.tertiary }]}>
-                      Awaiting admin approval
-                    </Text>
+                    <MaterialCommunityIcons name="clock-outline" size={11} color="#E65100" />
+                    <Text style={styles.pendingLabel}>Awaiting admin approval</Text>
                   </View>
                 )}
                 {isRemovePending && (
@@ -375,30 +295,26 @@ export default function OrganizerTeamDetailScreen() {
                 )}
               </View>
 
-              {/* Status + remove action */}
-              <View style={styles.playerActions}>
+              {/* Right side */}
+              <View style={styles.playerRight}>
                 <StatusPill status={isRemovePending ? 'Pending' : player.status} />
-                {!isRemovePending && !isDeletePending && (
+                {!isRemovePending && !deletePending && (
                   <TouchableOpacity
                     onPress={() => handleRemovePlayer(player)}
-                    style={[styles.removeBtn, { backgroundColor: theme.colors.error + '18' }]}
+                    style={styles.removeBtn}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <MaterialCommunityIcons
-                      name="account-remove-outline"
-                      size={16}
-                      color={theme.colors.error}
-                    />
+                    <MaterialCommunityIcons name="account-remove-outline" size={18} color={theme.colors.error} />
                   </TouchableOpacity>
                 )}
               </View>
-            </Surface>
+            </View>
           );
         })
       )}
 
-      {/* ── Delete Team button ── */}
-      {!isDeletePending && (
+      {/* ── Delete Team ── */}
+      {!deletePending && (
         <Button
           mode="outlined"
           onPress={handleDeleteTeam}
@@ -418,52 +334,38 @@ export default function OrganizerTeamDetailScreen() {
           style={{ flex: 1 }}
         >
           <View style={styles.modalOverlay}>
-            <Surface
-              style={[styles.modalSheet, { backgroundColor: theme.colors.surface }]}
-              elevation={4}
-            >
-              <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>
-                Add Player
-              </Text>
-              <Text style={[styles.modalSub, { color: theme.colors.onSurfaceVariant }]}>
-                Submitted for admin approval
-              </Text>
-              <Divider
-                style={{ backgroundColor: theme.colors.outline, marginVertical: SPACING.md }}
-              />
+            <View style={styles.modalSheet}>
+              <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>Add Player</Text>
+              <Text style={styles.modalSub}>Submitted for admin approval</Text>
+              <Divider style={{ marginVertical: SPACING.md }} />
 
               <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Full name */}
                 <TextInput
                   label="Full Name"
                   value={addForm.name}
                   onChangeText={(v) => setAddForm((f) => ({ ...f, name: v }))}
                   mode="outlined"
-                  outlineColor={theme.colors.outline}
+                  outlineColor="#EEEEEE"
                   activeOutlineColor={theme.colors.primary}
                   textColor={theme.colors.onSurface}
                   style={styles.formInput}
-                  left={<TextInput.Icon icon="account-outline" color={theme.colors.onSurfaceVariant} />}
+                  left={<TextInput.Icon icon="account-outline" color="#AAAAAA" />}
                 />
 
-                {/* Jersey number */}
                 <TextInput
                   label="Jersey Number"
                   value={addForm.jerseyNumber}
                   onChangeText={(v) => setAddForm((f) => ({ ...f, jerseyNumber: v.replace(/[^0-9]/g, '') }))}
                   keyboardType="numeric"
                   mode="outlined"
-                  outlineColor={theme.colors.outline}
+                  outlineColor="#EEEEEE"
                   activeOutlineColor={theme.colors.primary}
                   textColor={theme.colors.onSurface}
                   style={styles.formInput}
-                  left={<TextInput.Icon icon="pound" color={theme.colors.onSurfaceVariant} />}
+                  left={<TextInput.Icon icon="pound" color="#AAAAAA" />}
                 />
 
-                {/* Position picker */}
-                <Text style={[styles.pickerLabel, { color: theme.colors.onSurfaceVariant }]}>
-                  Position
-                </Text>
+                <Text style={styles.pickerLabel}>Position</Text>
                 <View style={styles.pillRow}>
                   {POSITIONS.map((pos) => (
                     <TouchableOpacity
@@ -471,35 +373,19 @@ export default function OrganizerTeamDetailScreen() {
                       onPress={() => setAddForm((f) => ({ ...f, position: pos }))}
                       style={[
                         styles.pill,
-                        {
-                          backgroundColor:
-                            addForm.position === pos
-                              ? theme.colors.primary
-                              : theme.colors.surfaceVariant,
-                        },
+                        addForm.position === pos
+                          ? { backgroundColor: theme.colors.primary }
+                          : { backgroundColor: '#F0F0F0' },
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.pillText,
-                          {
-                            color:
-                              addForm.position === pos
-                                ? theme.colors.onPrimary
-                                : theme.colors.onSurfaceVariant,
-                          },
-                        ]}
-                      >
+                      <Text style={[styles.pillText, { color: addForm.position === pos ? '#FFFFFF' : '#888888' }]}>
                         {pos}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
 
-                {/* Role picker */}
-                <Text style={[styles.pickerLabel, { color: theme.colors.onSurfaceVariant }]}>
-                  Role
-                </Text>
+                <Text style={styles.pickerLabel}>Role</Text>
                 <View style={styles.pillRow}>
                   {ROLES.map((role) => (
                     <TouchableOpacity
@@ -507,25 +393,12 @@ export default function OrganizerTeamDetailScreen() {
                       onPress={() => setAddForm((f) => ({ ...f, role }))}
                       style={[
                         styles.pill,
-                        {
-                          backgroundColor:
-                            addForm.role === role
-                              ? theme.colors.secondary
-                              : theme.colors.surfaceVariant,
-                        },
+                        addForm.role === role
+                          ? { backgroundColor: theme.colors.primary }
+                          : { backgroundColor: '#F0F0F0' },
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.pillText,
-                          {
-                            color:
-                              addForm.role === role
-                                ? theme.colors.onPrimary
-                                : theme.colors.onSurfaceVariant,
-                          },
-                        ]}
-                      >
+                      <Text style={[styles.pillText, { color: addForm.role === role ? '#FFFFFF' : '#888888' }]}>
                         {role}
                       </Text>
                     </TouchableOpacity>
@@ -539,7 +412,7 @@ export default function OrganizerTeamDetailScreen() {
                   onPress={handleAddPlayer}
                   disabled={!addForm.name.trim() || !addForm.jerseyNumber.trim()}
                   buttonColor={theme.colors.primary}
-                  textColor={theme.colors.onPrimary}
+                  textColor="#FFFFFF"
                   style={{ flex: 1 }}
                   contentStyle={{ paddingVertical: 4 }}
                 >
@@ -555,7 +428,7 @@ export default function OrganizerTeamDetailScreen() {
                   Cancel
                 </Button>
               </View>
-            </Surface>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -563,197 +436,84 @@ export default function OrganizerTeamDetailScreen() {
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────
-
-function MetaChip({ label, value, theme }) {
+function MetaChip({ label, value }) {
   return (
     <View style={styles.metaChip}>
-      <Text style={[styles.metaChipLabel, { color: theme.colors.onSurfaceVariant }]}>
-        {label}
-      </Text>
-      <Text style={[styles.metaChipValue, { color: theme.colors.onSurface }]}>{value}</Text>
+      <Text style={styles.metaChipLabel}>{label}</Text>
+      <Text style={styles.metaChipValue}>{value}</Text>
     </View>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   container: { padding: SPACING.md, gap: SPACING.sm, paddingBottom: SPACING.xl * 2 },
 
-  backBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    alignSelf: 'flex-start',
-    marginBottom: SPACING.xs,
-  },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, alignSelf: 'flex-start', marginBottom: SPACING.xs },
   backText: { fontSize: 14, fontWeight: '700' },
 
   alertBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    borderRadius: 10,
-    borderWidth: 1,
-    padding: SPACING.sm,
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.xs,
+    backgroundColor: '#FFF3E0', borderRadius: 10, padding: SPACING.sm,
   },
-  alertBannerText: { fontSize: 13, fontWeight: '600', flex: 1 },
+  alertBannerText: { fontSize: 13, fontWeight: '600', color: '#E65100', flex: 1 },
 
   // Info card
-  infoCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#FFFFFF20',
-    marginBottom: SPACING.xs,
-  },
-  infoRow: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm + 2,
-    gap: SPACING.xs,
-  },
-  infoLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  inlineValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  infoCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: SPACING.md, marginBottom: SPACING.xs },
+  infoStatusRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  deletePendingLabel: { fontSize: 12, fontWeight: '600', color: '#E65100' },
+
+  infoRow: { paddingVertical: SPACING.sm, gap: SPACING.xs },
+  infoLabel: { fontSize: 11, fontWeight: '700', color: '#AAAAAA', textTransform: 'uppercase', letterSpacing: 0.6 },
+  inlineValueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   infoValue: { fontSize: 16, fontWeight: '700' },
   inlineEditRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  inlineInput: { flex: 1, backgroundColor: 'transparent', height: 40 },
-  inlineSaveBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inlineCancelBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metaGrid: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    flexWrap: 'wrap',
-  },
+  inlineInput: { flex: 1, backgroundColor: '#FFFFFF', height: 40 },
+  inlineActionBtn: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+
+  metaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.lg, paddingTop: SPACING.sm },
   metaChip: { gap: 2 },
-  metaChipLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  metaChipValue: { fontSize: 13, fontWeight: '700' },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.md,
-  },
-  deletePendingLabel: { fontSize: 12, fontWeight: '600' },
+  metaChipLabel: { fontSize: 10, fontWeight: '700', color: '#AAAAAA', textTransform: 'uppercase', letterSpacing: 0.5 },
+  metaChipValue: { fontSize: 13, fontWeight: '700', color: '#1A1A1A' },
 
-  // Roster header
-  rosterHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: SPACING.sm,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  addPlayerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  addPlayerBtnText: { fontSize: 12, fontWeight: '700' },
+  // Roster
+  rosterHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: SPACING.sm },
+  sectionTitle: { fontSize: 16, fontWeight: '800' },
+  addPlayerBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  addPlayerBtnText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
 
-  emptyRoster: {
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.xl,
-  },
-  emptyText: { fontSize: 14, fontStyle: 'italic' },
+  emptyRoster: { alignItems: 'center', gap: SPACING.sm, paddingVertical: SPACING.xl },
+  emptyText: { fontSize: 14, color: '#AAAAAA', fontStyle: 'italic' },
 
   // Player rows
   playerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: SPACING.md,
-    gap: SPACING.md,
-    borderWidth: 1,
-    borderColor: '#FFFFFF20',
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFFFFF', borderRadius: 14,
+    padding: SPACING.md, gap: SPACING.md, overflow: 'hidden',
   },
-  jerseyBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  jerseyNum: { fontSize: 14, fontWeight: '900' },
+  roleAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
+  jerseyBadge: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  jerseyNum: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
   playerInfo: { flex: 1, gap: 3 },
   playerNameRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, flexWrap: 'wrap' },
   playerName: { fontSize: 14, fontWeight: '700' },
-  rolePill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  rolePill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
   rolePillText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
-  playerMeta: { fontSize: 12 },
-  pendingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  pendingLabel: { fontSize: 11, fontWeight: '600' },
-  playerActions: { alignItems: 'flex-end', gap: SPACING.xs },
-  removeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  playerMeta: { fontSize: 12, color: '#AAAAAA' },
+  pendingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  pendingLabel: { fontSize: 11, fontWeight: '600', color: '#E65100' },
+  playerRight: { alignItems: 'flex-end', gap: SPACING.xs },
+  removeBtn: { padding: 4 },
 
-  // Delete button
   deleteBtn: { borderRadius: 12, marginTop: SPACING.md },
 
   // Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000088' },
-  modalSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: SPACING.lg,
-    maxHeight: '85%',
-  },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000055' },
+  modalSheet: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.lg, maxHeight: '85%' },
   modalTitle: { fontSize: 20, fontWeight: '800' },
-  modalSub: { fontSize: 13, marginTop: 2 },
-  formInput: { backgroundColor: 'transparent', marginBottom: SPACING.sm },
-  pickerLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: SPACING.xs,
-    marginTop: SPACING.xs,
-  },
+  modalSub: { fontSize: 13, color: '#AAAAAA', marginTop: 2 },
+  formInput: { backgroundColor: '#FFFFFF', marginBottom: SPACING.sm },
+  pickerLabel: { fontSize: 11, fontWeight: '700', color: '#AAAAAA', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: SPACING.xs, marginTop: SPACING.xs },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, marginBottom: SPACING.md },
   pill: { paddingHorizontal: SPACING.md, paddingVertical: 7, borderRadius: 20 },
   pillText: { fontSize: 13, fontWeight: '700' },

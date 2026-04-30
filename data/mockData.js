@@ -198,3 +198,98 @@ export const mockPendingRequests = [
     submittedAt: '2024-02-01T10:00:00Z',
   },
 ];
+
+export const MATCH_STATS = [
+  {
+    id: 'stat_1',
+    playerId: 'player_1',
+    playerName: 'Tom Brady',
+    matchId: 'match_1',
+    statType: 'TD',
+    value: 3,
+    timestamp: '2024-03-02T15:30:00Z',
+  },
+  {
+    id: 'stat_2',
+    playerId: 'player_1',
+    playerName: 'Tom Brady',
+    matchId: 'match_1',
+    statType: 'INT',
+    value: 1,
+    timestamp: '2024-03-02T15:45:00Z',
+  },
+  {
+    id: 'stat_3',
+    playerId: 'player_1',
+    playerName: 'Tom Brady',
+    matchId: 'match_1',
+    statType: 'Completion',
+    value: 18,
+    timestamp: '2024-03-02T16:00:00Z',
+  },
+  {
+    id: 'stat_4',
+    playerId: 'player_2',
+    playerName: 'Patrick Mahomes',
+    matchId: 'match_1',
+    statType: 'TD',
+    value: 2,
+    timestamp: '2024-03-02T15:35:00Z',
+  },
+  {
+    id: 'stat_5',
+    playerId: 'player_2',
+    playerName: 'Patrick Mahomes',
+    matchId: 'match_1',
+    statType: 'Rush',
+    value: 45,
+    timestamp: '2024-03-02T15:50:00Z',
+  },
+  {
+    id: 'stat_6',
+    playerId: 'player_1',
+    playerName: 'Tom Brady',
+    matchId: 'match_2',
+    statType: 'Flag Pulled',
+    value: 4,
+    timestamp: new Date().toISOString(),
+  },
+  {
+    id: 'stat_7',
+    playerId: 'player_2',
+    playerName: 'Patrick Mahomes',
+    matchId: 'match_2',
+    statType: 'Sack',
+    value: 2,
+    timestamp: new Date().toISOString(),
+  },
+];
+
+export const PLAYERS = mockPlayers;
+export const MATCHES = mockMatches;
+export const TEAMS = mockTeams;
+export const TOURNAMENTS = mockTournaments;
+
+export const ORG_LEADERBOARD = {
+  teamRankings: [
+    { rank: 1, teamName: 'Eagles', wins: 8, losses: 2, pointsDiff: 45 },
+    { rank: 2, teamName: 'Tigers', wins: 6, losses: 4, pointsDiff: 12 },
+    { rank: 3, teamName: 'Dragons', wins: 4, losses: 6, pointsDiff: -8 },
+  ],
+  playerOverall: [
+    { rank: 1, name: 'Tom Brady', team: 'Eagles', tds: 28, ints: 4, flagsPulled: 12, sacks: 3 },
+    { rank: 2, name: 'Patrick Mahomes', team: 'Eagles', tds: 25, ints: 5, flagsPulled: 8, sacks: 2 },
+  ],
+  playerByPosition: {
+    QB: [
+      { rank: 1, name: 'Tom Brady', team: 'Eagles', tds: 28, ints: 4, flagsPulled: 12, sacks: 3 },
+      { rank: 2, name: 'Patrick Mahomes', team: 'Eagles', tds: 25, ints: 5, flagsPulled: 8, sacks: 2 },
+    ],
+  },
+};
+
+// Helper function to add users (for registration)
+export const addUser = (user) => {
+  mockUsers.push(user);
+  return user;
+};
