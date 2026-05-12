@@ -13,6 +13,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { APP_THEME, SPACING } from '../theme';
+import { addUser, mockOrganizations } from '../data/mockData';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -20,7 +22,7 @@ export default function RegisterScreen() {
   const [form, setForm] = useState({
     fullName: '',
     email: '',
-    teamName: '',
+    organizationName: '',
     password: '',
     confirmPassword: '',
   });
@@ -30,9 +32,9 @@ export default function RegisterScreen() {
   const update = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
   const handleRegister = async () => {
-    const { fullName, email, teamName, password, confirmPassword } = form;
+    const { fullName, email, organizationName, password, confirmPassword } = form;
 
-    if (!fullName || !email || !teamName || !password || !confirmPassword) {
+    if (!fullName || !email || !organizationName || !password || !confirmPassword) {
       setError('Please fill in all fields.');
       return;
     }
@@ -44,210 +46,268 @@ export default function RegisterScreen() {
       setError('Password must be at least 6 characters.');
       return;
     }
+    if (!email.includes('@')) {
+      setError('Please enter a valid email address.');
+      return;
+    }
 
     setError('');
     setLoading(true);
 
     setTimeout(() => {
+      // Check if organization exists or create new one
+      let organizationId = null;
+      let existingOrg = mockOrganizations.find(org => org.name === organizationName);
+      
+      if (existingOrg) {
+        organizationId = existingOrg.id;
+      } else {
+        // Create new organization ID (in real app, backend would handle this)
+        organizationId = `org_${Date.now()}`;
+      }
+
+      // Create new user with organizer role
+      const newUser = {
+        id: `org_${Date.now()}`,
+        email: email,
+        password: password,
+        name: fullName,
+        role: 'organizer',
+        organizationId: organizationId,
+        organizationName: organizationName,
+      };
+
+      // Add user to mock data
+      addUser(newUser);
+      
+      console.log('New organizer registered:', newUser);
+
       setLoading(false);
-      router.replace('/dashboard');
+      
+      // Redirect to organizer home after successful registration
+      router.replace('/(organizer)/home/dashboard');
     }, 1000);
   };
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor="#0a0f0a" />
+      <StatusBar barStyle="dark-content" backgroundColor={APP_THEME.colors.background} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.kav}
       >
-        <ScrollView contentContainerStyle={styles.scroll}>
-
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.backArrow}>←</Text>
-            <Text style={styles.backText}>Back to Login</Text>
-          </TouchableOpacity>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scroll}
+        >
+          {/* Back button - below status bar */}
+          <View style={styles.backButtonContainer}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.backArrow}>←</Text>
+              <Text style={styles.backText}>Back to Login</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.header}>
-            <Text style={styles.title}>Create Your{'\n'}Player</Text>
+            <Text style={styles.title}>Create Your{'\n'}Organizer Account</Text>
+            <Text style={styles.subtitle}>Join as an organizer to manage teams and tournaments</Text>
           </View>
 
           <View style={styles.card}>
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <TextInput
-              style={styles.input}
-              placeholder="Full Name"
-              value={form.fullName}
-              onChangeText={val => update('fullName', val)}
-            />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>FULL NAME</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="John Doe"
+                placeholderTextColor={APP_THEME.colors.onSurfaceVariant}
+                value={form.fullName}
+                onChangeText={val => update('fullName', val)}
+              />
+            </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              value={form.email}
-              onChangeText={val => update('email', val)}
-            />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>EMAIL</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="organizer@example.com"
+                placeholderTextColor={APP_THEME.colors.onSurfaceVariant}
+                value={form.email}
+                onChangeText={val => update('email', val)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Team Name"
-              value={form.teamName}
-              onChangeText={val => update('teamName', val)}
-            />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>ORGANIZATION NAME</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Flag Football League"
+                placeholderTextColor={APP_THEME.colors.onSurfaceVariant}
+                value={form.organizationName}
+                onChangeText={val => update('organizationName', val)}
+              />
+              <Text style={styles.helperText}>
+                Your organization will be created if it doesn't exist
+              </Text>
+            </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              secureTextEntry
-              value={form.password}
-              onChangeText={val => update('password', val)}
-            />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>PASSWORD</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor={APP_THEME.colors.onSurfaceVariant}
+                secureTextEntry
+                value={form.password}
+                onChangeText={val => update('password', val)}
+              />
+              <Text style={styles.helperText}>Must be at least 6 characters</Text>
+            </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Confirm Password"
-              secureTextEntry
-              value={form.confirmPassword}
-              onChangeText={val => update('confirmPassword', val)}
-            />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>CONFIRM PASSWORD</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor={APP_THEME.colors.onSurfaceVariant}
+                secureTextEntry
+                value={form.confirmPassword}
+                onChangeText={val => update('confirmPassword', val)}
+              />
+            </View>
 
             <TouchableOpacity
-              style={styles.primaryBtn}
+              style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
               onPress={handleRegister}
+              disabled={loading}
+              activeOpacity={0.85}
             >
-              <Text style={styles.primaryBtnText}>CREATE ACCOUNT</Text>
+              {loading ? (
+                <ActivityIndicator color={APP_THEME.colors.onPrimary} />
+              ) : (
+                <Text style={styles.primaryBtnText}>CREATE ORGANIZER ACCOUNT</Text>
+              )}
             </TouchableOpacity>
-          </View>
 
+            <View style={styles.infoBox}>
+              <Text style={styles.infoText}>
+                ℹ️ As an organizer, you'll be able to:
+              </Text>
+              <Text style={styles.infoBullet}>• Create and manage teams</Text>
+              <Text style={styles.infoBullet}>• Organize tournaments</Text>
+              <Text style={styles.infoBullet}>• Schedule matches</Text>
+              <Text style={styles.infoBullet}>• Manage player rosters</Text>
+            </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// styles unchanged
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0a0f0a',
+    backgroundColor: APP_THEME.colors.background,
   },
   kav: {
     flex: 1,
   },
   scroll: {
-    paddingHorizontal: 24,
+    paddingHorizontal: SPACING.lg,
     paddingBottom: 40,
+  },
+  backButtonContainer: {
+    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight || 0,
   },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 16,
-    marginBottom: 28,
+    paddingVertical: 12,
+    marginBottom: 20,
   },
   backArrow: {
-    fontSize: 20,
-    color: '#c8f135',
+    fontSize: 24,
+    color: APP_THEME.colors.primary,
     marginRight: 8,
+    fontWeight: '600',
   },
   backText: {
-    fontSize: 14,
-    color: '#5a7a5a',
+    fontSize: 16,
+    color: APP_THEME.colors.primary,
     fontWeight: '600',
   },
   header: {
     marginBottom: 28,
   },
-  badgeRow: {
-    flexDirection: 'row',
-    marginBottom: 14,
-  },
-  badge: {
-    backgroundColor: '#c8f13520',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: '#c8f13540',
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#c8f135',
-    letterSpacing: 2,
-  },
   title: {
     fontSize: 38,
     fontWeight: '900',
-    color: '#ffffff',
+    color: APP_THEME.colors.secondary,
     lineHeight: 44,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 15,
-    color: '#5a7a5a',
-    lineHeight: 22,
+    fontSize: 14,
+    color: APP_THEME.colors.onSurfaceVariant,
+    marginTop: 4,
   },
   card: {
-    backgroundColor: '#131a13',
-    borderRadius: 24,
+    backgroundColor: APP_THEME.colors.surface,
+    borderRadius: APP_THEME.roundness * 2,
     padding: 28,
-    borderWidth: 1,
-    borderColor: '#1e2d1e',
+    ...APP_THEME.shadow,
   },
   errorText: {
-    color: '#ff5a5a',
+    color: APP_THEME.colors.error,
     fontSize: 13,
     marginBottom: 14,
     fontWeight: '600',
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
   label: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#c8f135',
+    color: APP_THEME.colors.primary,
     letterSpacing: 2,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#0d130d',
-    borderRadius: 12,
+    backgroundColor: APP_THEME.colors.surfaceVariant,
+    borderRadius: APP_THEME.roundness,
     borderWidth: 1,
-    borderColor: '#1e2d1e',
+    borderColor: APP_THEME.colors.outline,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
-    color: '#ffffff',
-
+    color: APP_THEME.colors.onSurface,
   },
-  termsRow: {
+  helperText: {
+    fontSize: 11,
+    color: APP_THEME.colors.onSurfaceVariant,
     marginTop: 4,
-    marginBottom: 24,
-  },
-  termsText: {
-    fontSize: 12,
-    color: '#4a5a4a',
-    lineHeight: 18,
-  },
-  termsLink: {
-    color: '#c8f135',
-    fontWeight: '700',
+    marginLeft: 4,
   },
   primaryBtn: {
-    backgroundColor: '#c8f135',
-    borderRadius: 14,
+    backgroundColor: APP_THEME.colors.primary,
+    borderRadius: APP_THEME.roundness,
     paddingVertical: 16,
     alignItems: 'center',
-    shadowColor: '#c8f135',
+    shadowColor: APP_THEME.colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 6,
+    marginTop: SPACING.md,
   },
   primaryBtnDisabled: {
     opacity: 0.7,
@@ -255,21 +315,27 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     fontSize: 15,
     fontWeight: '900',
-    color: '#0a0f0a',
+    color: APP_THEME.colors.onPrimary,
     letterSpacing: 2,
   },
-  loginRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
+  infoBox: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: APP_THEME.colors.surfaceVariant,
+    borderRadius: APP_THEME.roundness,
+    borderWidth: 1,
+    borderColor: APP_THEME.colors.outline,
   },
-  loginPrompt: {
-    fontSize: 14,
-    color: '#4a5a4a',
+  infoText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: APP_THEME.colors.onSurface,
+    marginBottom: 8,
   },
-  loginLink: {
-    fontSize: 14,
-    color: '#c8f135',
-    fontWeight: '800',
+  infoBullet: {
+    fontSize: 12,
+    color: APP_THEME.colors.onSurfaceVariant,
+    marginLeft: 8,
+    marginBottom: 4,
   },
 });

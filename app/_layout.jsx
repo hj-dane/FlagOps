@@ -1,10 +1,10 @@
 import { Stack } from "expo-router";
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function RootLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
-      <Stack.Screen name="dashboard" />
       <Stack.Screen name="register" />
 
       {/* Group routes */}

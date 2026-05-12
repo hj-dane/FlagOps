@@ -227,6 +227,9 @@ export default function PlayerStatsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.lg },
+  scrollContent: {
+    paddingHorizontal: SPACING.lg,
+  },
   screenTitle: { fontSize: 26, fontWeight: '800', marginBottom: SPACING.md },
   searchbar: { backgroundColor: '#FFFFFF', borderRadius: 12, marginBottom: SPACING.md, borderWidth: 1, borderColor: '#EEEEEE' },
   playerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 14, padding: SPACING.md, gap: SPACING.md },

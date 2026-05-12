@@ -174,6 +174,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: SPACING.md, paddingTop: SPACING.lg },
+  scrollContent: {
+    paddingHorizontal: SPACING.lg,
+  },
   screenTitle: { fontSize: 26, fontWeight: '800', marginBottom: SPACING.md },
   tournamentPicker: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
