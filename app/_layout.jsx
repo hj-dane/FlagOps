@@ -1,15 +1,30 @@
 import { Stack } from "expo-router";
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Provider as JotaiProvider } from 'jotai';
+import { Provider as PaperProvider } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
+import { APP_THEME } from '../theme';
 
 export default function RootLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="register" />
+    <JotaiProvider>
+      <PaperProvider theme={APP_THEME}>
+        <View style={styles.appContainer}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="register" />
 
-      {/* Group routes */}
-      <Stack.Screen name="(admin)" />
-      <Stack.Screen name="(organizer)" />
-    </Stack>
+            {/* Group routes */}
+            <Stack.Screen name="(admin)" />
+            <Stack.Screen name="(organizer)" />
+          </Stack>
+        </View>
+      </PaperProvider>
+    </JotaiProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  appContainer: {
+    flex: 1,
+  },
+});

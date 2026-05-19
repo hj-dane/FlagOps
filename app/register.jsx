@@ -11,13 +11,17 @@ import {
   StatusBar,
   ScrollView,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { APP_THEME, SPACING } from '../theme';
-import { addUser, mockOrganizations } from '../data/mockData';
+import { useSetAtom } from 'jotai';
+import { supabase } from '../utils/supabase';
+import { userProfileAtom } from '../store/globalStore';
+import { APP_THEME, SPACING, CARD_SHADOW } from '../theme';
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const setUserProfile = useSetAtom(userProfileAtom);
 
   const [form, setForm] = useState({
     fullName: '',
@@ -28,6 +32,8 @@ export default function RegisterScreen() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
 
   const update = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
@@ -54,39 +60,91 @@ export default function RegisterScreen() {
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
-      // Check if organization exists or create new one
-      let organizationId = null;
-      let existingOrg = mockOrganizations.find(org => org.name === organizationName);
-      
+    try {
+      // 1. Sign up user - Trigger will automatically create profile
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password,
+        options: {
+          data: { name: fullName.trim() } // Pass name to user_metadata for trigger
+        }
+      });
+
+      if (authError) throw authError;
+      if (!authData?.user) throw new Error('Registration failed to yield valid credentials.');
+
+      const userId = authData.user.id;
+
+      // 2. Locate or create organization
+      let targetOrgId = null;
+      const cleanedOrgName = organizationName.trim();
+
+      const { data: existingOrg, error: matchError } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('name', cleanedOrgName)
+        .maybeSingle();
+
       if (existingOrg) {
-        organizationId = existingOrg.id;
+        targetOrgId = existingOrg.id;
       } else {
-        // Create new organization ID (in real app, backend would handle this)
-        organizationId = `org_${Date.now()}`;
+        const { data: newOrg, error: insertOrgError } = await supabase
+          .from('organizations')
+          .insert({ name: cleanedOrgName })
+          .select()
+          .single();
+
+        if (insertOrgError) throw insertOrgError;
+        targetOrgId = newOrg.id;
       }
 
-      // Create new user with organizer role
-      const newUser = {
-        id: `org_${Date.now()}`,
-        email: email,
-        password: password,
-        name: fullName,
+      // 3. UPDATE the existing profile (created by trigger) with organization_id
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          organization_id: targetOrgId,
+          name: fullName.trim() // Ensure name is set correctly
+        })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+
+      // 4. Update global state
+      setUserProfile({
+        id: userId,
+        name: fullName.trim(),
         role: 'organizer',
-        organizationId: organizationId,
-        organizationName: organizationName,
-      };
+        organization_id: targetOrgId,
+        organizationName: cleanedOrgName
+      });
 
-      // Add user to mock data
-      addUser(newUser);
-      
-      console.log('New organizer registered:', newUser);
+      // 5. Show success modal instead of auto-redirect
+      setRegisteredEmail(email.trim());
+      setShowSuccessModal(true);
 
+    } catch (err) {
+      console.error('Registration error:', err);
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
       setLoading(false);
-      
-      // Redirect to organizer home after successful registration
-      router.replace('/(organizer)/home/dashboard');
-    }, 1000);
+    }
+  };
+
+  const handleRedirectToLogin = () => {
+    setShowSuccessModal(false);
+    router.replace('/');
+  };
+
+  const handleStayOnRegister = () => {
+    setShowSuccessModal(false);
+    // Reset form if desired
+    setForm({
+      fullName: '',
+      email: '',
+      organizationName: '',
+      password: '',
+      confirmPassword: '',
+    });
   };
 
   return (
@@ -100,7 +158,6 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
         >
-          {/* Back button - below status bar */}
           <View style={styles.backButtonContainer}>
             <TouchableOpacity
               style={styles.backBtn}
@@ -208,6 +265,44 @@ export default function RegisterScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.successIconContainer}>
+              <Text style={styles.successIcon}>✓</Text>
+            </View>
+            <Text style={styles.modalTitle}>Registration Successful!</Text>
+            <Text style={styles.modalMessage}>
+              Your account has been created successfully.
+            </Text>
+            <Text style={styles.modalEmail}>{registeredEmail}</Text>
+            <Text style={styles.modalQuestion}>
+              Would you like to login now?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.loginButton]}
+                onPress={handleRedirectToLogin}
+              >
+                <Text style={styles.loginButtonText}>Yes, Login</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.stayButton]}
+                onPress={handleStayOnRegister}
+              >
+                <Text style={styles.stayButtonText}>Stay Here</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -263,7 +358,7 @@ const styles = StyleSheet.create({
     backgroundColor: APP_THEME.colors.surface,
     borderRadius: APP_THEME.roundness * 2,
     padding: 28,
-    ...APP_THEME.shadow,
+    ...CARD_SHADOW,
   },
   errorText: {
     color: APP_THEME.colors.error,
@@ -337,5 +432,90 @@ const styles = StyleSheet.create({
     color: APP_THEME.colors.onSurfaceVariant,
     marginLeft: 8,
     marginBottom: 4,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: APP_THEME.colors.surface,
+    borderRadius: 24,
+    padding: 24,
+    width: '85%',
+    alignItems: 'center',
+    ...CARD_SHADOW,
+  },
+  successIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  successIcon: {
+    fontSize: 36,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: APP_THEME.colors.onSurface,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: APP_THEME.colors.onSurfaceVariant,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalEmail: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: APP_THEME.colors.primary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalQuestion: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: APP_THEME.colors.onSurface,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  loginButton: {
+    backgroundColor: APP_THEME.colors.primary,
+  },
+  loginButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  stayButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: APP_THEME.colors.outline,
+  },
+  stayButtonText: {
+    color: APP_THEME.colors.onSurfaceVariant,
+    fontWeight: '600',
+    fontSize: 14,
   },
 });
