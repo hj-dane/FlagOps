@@ -12,11 +12,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { mockUsers } from '../data/mockData';
-import { APP_THEME, SPACING } from '../theme';
+import { useSetAtom } from 'jotai';
+import { supabase } from '../utils/supabase'; // Reference to your root Supabase configuration
+import { userProfileAtom } from '../store/globalStore';
+import { APP_THEME, SPACING, CARD_SHADOW } from '../theme';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const setUserProfile = useSetAtom(userProfileAtom);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,33 +35,55 @@ export default function LoginScreen() {
     setError('');
     setLoading(true);
 
-    // Simulate network request
-    setTimeout(() => {
-      // Find user by email and password
-      const user = mockUsers.find(
-        u => u.email === email && u.password === password
-      );
+    try {
+      // 1. Authenticate with Supabase Auth Engine
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
-      if (!user) {
-        setError('Invalid email or password.');
-        setLoading(false);
-        return;
+      if (authError) throw authError;
+
+      if (authData?.user) {
+        // 2. Fetch the corresponding custom profile metadata row
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select(`
+            id,
+            name,
+            role,
+            organization_id,
+            organizations ( name )
+          `)
+          .eq('id', authData.user.id)
+          .single();
+
+        if (profileError) throw profileError;
+
+        // Flatten database relational structure into standard atom layout
+        const continuousProfile = {
+          id: profile.id,
+          name: profile.name,
+          role: profile.role,
+          organization_id: profile.organization_id,
+          organizationName: profile.organizations?.name || '',
+        };
+
+        // 3. Hydrate state globally 
+        setUserProfile(continuousProfile);
+
+        // 4. Group Route Redirects (Strictly without parent sidebar side effects)
+        if (continuousProfile.role === 'admin') {
+          router.replace('/(admin)');
+        } else {
+          router.replace('/(organizer)');
+        }
       }
-
+    } catch (err) {
+      setError(err.message || 'An error occurred during authentication.');
+    } finally {
       setLoading(false);
-      
-      // Redirect based on user role
-      if (user.role === 'admin') {
-        // Redirect to admin section
-        router.replace('/(admin)');
-      } else if (user.role === 'organizer') {
-        // Redirect to organizer home dashboard
-        router.replace('/(organizer)/home/dashboard');
-      } else {
-        // Default fallback for any other role
-        router.replace('/(organizer)/home/dashboard');
-      }
-    }, 800);
+    }
   };
 
   return (
@@ -191,7 +216,7 @@ const styles = StyleSheet.create({
     backgroundColor: APP_THEME.colors.surface,
     borderRadius: APP_THEME.roundness * 2,
     padding: 28,
-    ...APP_THEME.shadow,
+    ...CARD_SHADOW,
   },
   cardTitle: {
     fontSize: 24,
