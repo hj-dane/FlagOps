@@ -1,59 +1,104 @@
 // app/(admin)/leaderboard/index.jsx
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, ScrollView, StyleSheet, Alert } from 'react-native';
 import { Text, useTheme, Button, ActivityIndicator } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LEADERBOARD_ENTRIES } from '../../../data/mockData';
+import { supabase } from '../../../utils/supabase';
 import { SPACING, CARD_SHADOW } from '../../../theme';
+import ScreenHeader from '../../../components/ScreenHeader';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
 export default function AdminLeaderboardScreen() {
   const theme = useTheme();
-  const [generating, setGenerating] = useState(false);
-  const [lastGenerated, setLastGenerated] = useState('Apr 23, 2025 · 10:45 AM');
-  const [data, setData] = useState(LEADERBOARD_ENTRIES);
+  const [data, setData] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [lastGenerated, setLastGenerated] = useState(null);
 
-  const handleGenerate = () => {
-    setGenerating(true);
-    setTimeout(() => {
-      setGenerating(false);
-      setLastGenerated(new Date().toLocaleString());
-    }, 1800);
+  const fetchLeaderboard = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { data: matches, error } = await supabase
+        .from('matches')
+        .select('id, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score')
+        .eq('status', 'completed');
+      if (error) throw error;
+
+      const tally = {};
+      (matches || []).forEach((m) => {
+        const homeId = m.home_team_id;
+        const awayId = m.away_team_id;
+        if (!tally[homeId]) tally[homeId] = { team_id: homeId, team_name: m.home_team_name, wins: 0, losses: 0, points_for: 0, points_against: 0 };
+        if (!tally[awayId]) tally[awayId] = { team_id: awayId, team_name: m.away_team_name, wins: 0, losses: 0, points_for: 0, points_against: 0 };
+        const hs = m.home_score ?? 0;
+        const as = m.away_score ?? 0;
+        tally[homeId].points_for += hs; tally[homeId].points_against += as;
+        tally[awayId].points_for += as; tally[awayId].points_against += hs;
+        if (hs > as) { tally[homeId].wins++; tally[awayId].losses++; }
+        else if (as > hs) { tally[awayId].wins++; tally[homeId].losses++; }
+      });
+
+      const rows = Object.values(tally)
+        .map((r) => ({ ...r, points_differential: r.points_for - r.points_against }))
+        .sort((a, b) => b.wins - a.wins || b.points_differential - a.points_differential);
+
+      setData(rows);
+      setLastGenerated(new Date().toLocaleTimeString());
+    } catch (err) {
+      console.error('fetchLeaderboard error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchLeaderboard(); }, [fetchLeaderboard]);
+
+  // Recalculate = same as fetch (calculated live from matches)
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    await fetchLeaderboard();
+    setIsGenerating(false);
+    Alert.alert('Done', 'Leaderboard recalculated from completed matches.');
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header */}
-      <View style={styles.headerRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.screenTitle, { color: theme.colors.onSurface }]}>Rankings</Text>
-          <Text style={styles.lastGen}>Updated {lastGenerated}</Text>
+      <ScreenHeader title="Rankings" />
+
+      <View style={styles.actionRow}>
+        <Text style={styles.lastGen}>{lastGenerated ? `Last sync: ${lastGenerated}` : 'Not yet loaded'}</Text>
+        <View style={styles.btnGroup}>
+          <Button
+            mode="outlined"
+            onPress={fetchLeaderboard}
+            loading={isLoading}
+            disabled={isLoading || isGenerating}
+            icon="refresh"
+            style={styles.refreshBtn}
+            compact
+          >
+            Refresh
+          </Button>
+          <Button
+            mode="contained"
+            onPress={handleGenerate}
+            loading={isGenerating}
+            disabled={isLoading || isGenerating}
+            buttonColor={theme.colors.primary}
+            icon="calculator"
+            style={styles.generateBtn}
+            compact
+          >
+            Generate
+          </Button>
         </View>
-        <Button
-          mode="contained"
-          onPress={handleGenerate}
-          loading={generating}
-          disabled={generating}
-          buttonColor={theme.colors.primary}
-          textColor="#FFFFFF"
-          icon="refresh"
-          style={{ borderRadius: 12 }}
-          contentStyle={{ paddingHorizontal: 8 }}
-        >
-          Generate
-        </Button>
       </View>
 
-      {generating ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator color={theme.colors.primary} size="large" />
-          <Text style={styles.loadingText}>Recalculating from match data…</Text>
-        </View>
+      {isLoading ? (
+        <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: SPACING.sm, paddingBottom: SPACING.xl }}>
-
-          {/* Table header */}
+          {/* Table Header */}
           <View style={[styles.tableHeader, CARD_SHADOW]}>
             <Text style={[styles.colRank, styles.colHeaderText]}>RK</Text>
             <Text style={[styles.colTeam, styles.colHeaderText]}>TEAM</Text>
@@ -62,51 +107,25 @@ export default function AdminLeaderboardScreen() {
             <Text style={[styles.colNum, styles.colHeaderText]}>+/-</Text>
           </View>
 
-          {data.map((entry, index) => (
-            <View
-              key={entry.rank}
-              style={[
-                styles.tableRow,
-                CARD_SHADOW,
-                index === 0 && { borderLeftWidth: 4, borderLeftColor: theme.colors.primary },
-              ]}
-            >
-              <Text style={[styles.colRank, { fontSize: 18 }]}>
-                {MEDAL[index] ?? entry.rank}
-              </Text>
-              <View style={styles.colTeam}>
-                <Text style={[styles.teamNameText, { color: theme.colors.onSurface }]}>{entry.teamName}</Text>
-                <Text style={styles.orgNameText}>{entry.orgName}</Text>
-              </View>
-              <Text style={[styles.colNum, { color: '#2E7D32', fontWeight: '800', fontSize: 15 }]}>{entry.wins}</Text>
-              <Text style={[styles.colNum, { color: theme.colors.primary, fontWeight: '700', fontSize: 15 }]}>{entry.losses}</Text>
-              <Text style={[styles.colNum, { color: entry.pointsDiff >= 0 ? '#2E7D32' : theme.colors.primary, fontWeight: '700', fontSize: 14 }]}>
-                {entry.pointsDiff > 0 ? `+${entry.pointsDiff}` : entry.pointsDiff}
-              </Text>
+          {data.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>No leaderboard data. Press "Generate" to calculate from match results.</Text>
             </View>
-          ))}
-
-          {/* Top Scorers */}
-          <Text style={[styles.sectionTitle, { color: theme.colors.onSurface, marginTop: SPACING.sm }]}>
-            Top Scorers
-          </Text>
-          {data.slice(0, 3).map((entry, i) => (
-            <View key={`scorer-${i}`} style={[styles.scorerCard, CARD_SHADOW]}>
-              <View style={[styles.scorerRankCircle, { backgroundColor: i === 0 ? theme.colors.primary : '#F5F5F5' }]}>
-                <Text style={[styles.scorerRankText, { color: i === 0 ? '#FFFFFF' : '#888888' }]}>
-                  #{i + 1}
+          ) : (
+            data.map((entry, index) => (
+              <View key={entry.id || entry.team_id} style={[styles.tableRow, CARD_SHADOW]}>
+                <Text style={styles.colRank}>{MEDAL[index] ?? index + 1}</Text>
+                <View style={styles.colTeam}>
+                  <Text style={styles.teamNameText}>{entry.team_name}</Text>
+                </View>
+                <Text style={styles.colNum}>{entry.wins ?? 0}</Text>
+                <Text style={styles.colNum}>{entry.losses ?? 0}</Text>
+                <Text style={[styles.colNum, { color: (entry.points_differential ?? 0) >= 0 ? '#4CAF50' : '#F44336' }]}>
+                  {entry.points_differential ?? 0}
                 </Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.scorerName, { color: theme.colors.onSurface }]}>{entry.topScorer}</Text>
-                <Text style={styles.scorerTeam}>{entry.teamName}</Text>
-              </View>
-              <View style={styles.tdBadge}>
-                <Text style={[styles.tdCount, { color: theme.colors.primary }]}>{entry.tds}</Text>
-                <Text style={styles.tdLabel}>TDs</Text>
-              </View>
-            </View>
-          ))}
+            ))
+          )}
         </ScrollView>
       )}
     </View>
@@ -115,38 +134,18 @@ export default function AdminLeaderboardScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: SPACING.md, paddingTop: SPACING.lg },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md, gap: SPACING.md },
-  screenTitle: { fontSize: 26, fontWeight: '800' },
-  lastGen: { fontSize: 11, color: '#AAAAAA', marginTop: 2 },
-  loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: SPACING.md },
-  loadingText: { fontSize: 14, color: '#AAAAAA' },
-  tableHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#1A1A1A', borderRadius: 12,
-    paddingVertical: SPACING.sm + 2, paddingHorizontal: SPACING.md,
-  },
-  colHeaderText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: 0.8 },
-  tableRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFFFFF', borderRadius: 12,
-    paddingVertical: SPACING.sm + 4, paddingHorizontal: SPACING.md,
-  },
+  actionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.md },
+  lastGen: { fontSize: 11, color: '#AAAAAA', flex: 1 },
+  btnGroup: { flexDirection: 'row', gap: SPACING.xs },
+  refreshBtn: { borderRadius: 8 },
+  generateBtn: { borderRadius: 8 },
+  tableHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1A1A', borderRadius: 12, padding: SPACING.md },
+  tableRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, padding: SPACING.md },
   colRank: { width: 36, textAlign: 'center' },
   colTeam: { flex: 1 },
-  colNum: { width: 44, textAlign: 'center' },
+  colNum: { width: 44, textAlign: 'center', fontWeight: '700' },
+  colHeaderText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', textTransform: 'uppercase' },
   teamNameText: { fontSize: 14, fontWeight: '700' },
-  orgNameText: { fontSize: 11, color: '#AAAAAA', marginTop: 1 },
-  sectionTitle: { fontSize: 16, fontWeight: '800' },
-  scorerCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFFFFF', borderRadius: 14,
-    padding: SPACING.md, gap: SPACING.md,
-  },
-  scorerRankCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  scorerRankText: { fontSize: 12, fontWeight: '800' },
-  scorerName: { fontSize: 14, fontWeight: '700' },
-  scorerTeam: { fontSize: 12, color: '#AAAAAA', marginTop: 1 },
-  tdBadge: { alignItems: 'center' },
-  tdCount: { fontSize: 26, fontWeight: '900' },
-  tdLabel: { fontSize: 10, fontWeight: '700', color: '#AAAAAA', textTransform: 'uppercase' },
+  empty: { padding: SPACING.xl, alignItems: 'center' },
+  emptyText: { fontSize: 13, color: '#AAAAAA', textAlign: 'center', fontStyle: 'italic' },
 });

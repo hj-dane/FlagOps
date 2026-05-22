@@ -1,245 +1,274 @@
 // app/(admin)/teams/[id].jsx
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import {
-  Text,
-  Surface,
-  useTheme,
-  TextInput,
-  Button,
-  Divider,
-} from 'react-native-paper';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { Text, TextInput, Button, Divider, useTheme, ActivityIndicator } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAtom } from 'jotai';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { teamsAtom } from '../../../store/globalStore';
+import { supabase } from '../../../utils/supabase';
 import StatusPill from '../../../components/StatusPill';
-import { TEAMS, PLAYERS } from '../../../data/mockData';
-import { SPACING } from '../../../theme';
+import { SPACING, CARD_SHADOW } from '../../../theme';
 
 export default function AdminTeamDetailScreen() {
   const { id } = useLocalSearchParams();
   const theme = useTheme();
   const router = useRouter();
+  const [teams, setTeams] = useAtom(teamsAtom);
 
-  const team = TEAMS.find((t) => t.id === id);
-  const roster = PLAYERS.filter((p) => p.teamId === id);
+  const [team, setTeam] = useState(() => teams.find((t) => t.id === id) || null);
+  const [roster, setRoster] = useState([]);
+  const [loading, setLoading] = useState(!team);
 
   const [editing, setEditing] = useState(false);
   const [teamName, setTeamName] = useState(team?.name ?? '');
-  const [jerseyColor, setJerseyColor] = useState(team?.jerseyColor ?? '');
-  const [savedAt, setSavedAt] = useState(null);
+  const [jerseyColor, setJerseyColor] = useState(team?.jersey_color ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const fetchTeam = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('teams')
+      .select('*, organizations(name)')
+      .eq('id', id)
+      .single();
+    if (!error && data) {
+      setTeam(data);
+      setTeamName(data.name);
+      setJerseyColor(data.jersey_color || '');
+    }
+
+    const { data: players } = await supabase
+      .from('players')
+      .select('id, name, jersey_number, position, status')
+      .eq('team_id', id)
+      .order('name');
+    setRoster(players || []);
+    setLoading(false);
+  }, [id]);
+
+  useEffect(() => { fetchTeam(); }, [fetchTeam]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const { error } = await supabase
+      .from('teams')
+      .update({ name: teamName, jersey_color: jerseyColor || null })
+      .eq('id', id);
+
+    if (!error) {
+      setTeam((prev) => ({ ...prev, name: teamName, jersey_color: jerseyColor }));
+      setTeams((prev) => prev.map((t) => t.id === id ? { ...t, name: teamName, jersey_color: jerseyColor } : t));
+      setEditing(false);
+      Alert.alert('Saved', `Admin override applied by admin.`);
+    } else {
+      Alert.alert('Error', 'Failed to save changes.');
+    }
+    setSaving(false);
+  };
+
+  const handleDeleteTeam = () => {
+    Alert.alert(
+      'Delete Team',
+      `Permanently delete "${team?.name || 'this team'}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete', style: 'destructive', onPress: async () => {
+            const { error } = await supabase.from('teams').delete().eq('id', id);
+            if (!error) {
+              setTeams((prev) => prev.filter((t) => t.id !== id));
+              Alert.alert('Deleted', 'Team has been permanently removed.');
+              router.back();
+            } else {
+              Alert.alert('Error', 'Could not delete team.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+    if (loading) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
 
   if (!team) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
         <Text style={{ color: theme.colors.onSurfaceVariant }}>Team not found.</Text>
       </View>
     );
   }
 
-  const handleSave = () => {
-    // TODO: PATCH /teams/:id with admin override flag
-    const now = new Date().toLocaleString();
-    setSavedAt(now);
-    setEditing(false);
-    Alert.alert('Override Saved', `Edited by Admin on ${now}`);
-  };
+  const statusLabel = team.status
+    ? team.status.charAt(0).toUpperCase() + team.status.slice(1)
+    : 'Active';
 
   return (
     <ScrollView
       style={{ backgroundColor: theme.colors.background }}
       contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
     >
-      {/* Hero */}
-      <Surface style={[styles.heroCard, { backgroundColor: theme.colors.surface }]} elevation={0}>
-        <View style={styles.heroRow}>
-          <View style={{ flex: 1 }}>
-            {editing ? (
-              <TextInput
-                value={teamName}
-                onChangeText={setTeamName}
-                style={styles.editInput}
-                mode="outlined"
-                label="Team Name"
-                outlineColor={theme.colors.outline}
-                activeOutlineColor={theme.colors.primary}
-                textColor={theme.colors.onSurface}
-              />
-            ) : (
-              <Text style={[styles.heroName, { color: theme.colors.onSurface }]}>{teamName}</Text>
-            )}
-            <Text style={[styles.heroSub, { color: theme.colors.onSurfaceVariant }]}>
-              {team.orgName}
-            </Text>
-          </View>
-          <StatusPill status={team.status} />
+      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <MaterialCommunityIcons name="arrow-left" size={20} color={theme.colors.primary} />
+        <Text style={[styles.backText, { color: theme.colors.primary }]}>All Teams</Text>
+      </TouchableOpacity>
+
+      {/* Info card */}
+      <View style={[styles.infoCard, CARD_SHADOW]}>
+        <View style={styles.infoStatusRow}>
+          <StatusPill status={statusLabel} />
+          {!editing && (
+            <TouchableOpacity onPress={() => setEditing(true)} style={styles.editBtn}>
+              <MaterialCommunityIcons name="pencil-outline" size={16} color={theme.colors.primary} />
+              <Text style={[styles.editBtnText, { color: theme.colors.primary }]}>Admin Override</Text>
+            </TouchableOpacity>
+          )}
         </View>
+        <Divider style={{ marginVertical: SPACING.sm }} />
 
-        <Divider style={{ marginVertical: SPACING.sm, backgroundColor: theme.colors.outline }} />
-
-        <View style={styles.metaGrid}>
-          <MetaItem label="Players" value={team.playerCount} theme={theme} />
-          <MetaItem label="Jersey Color" value={jerseyColor} theme={theme} editable={editing}
-            onEdit={setJerseyColor} />
-          <MetaItem label="Created" value={team.createdAt} theme={theme} />
-        </View>
-
-        {savedAt && (
-          <Text style={[styles.auditLabel, { color: theme.colors.onSurfaceVariant }]}>
-            ✓ Edited by Admin on {savedAt}
-          </Text>
-        )}
-
-        <View style={styles.actionRow}>
-          {editing ? (
-            <>
+        {editing ? (
+          <View style={styles.editForm}>
+            <TextInput
+              label="Team Name"
+              value={teamName}
+              onChangeText={setTeamName}
+              mode="outlined"
+              outlineColor="#EEEEEE"
+              activeOutlineColor={theme.colors.primary}
+              textColor={theme.colors.onSurface}
+              style={styles.formInput}
+            />
+            <TextInput
+              label="Jersey Color"
+              value={jerseyColor}
+              onChangeText={setJerseyColor}
+              mode="outlined"
+              outlineColor="#EEEEEE"
+              activeOutlineColor={theme.colors.primary}
+              textColor={theme.colors.onSurface}
+              style={styles.formInput}
+              placeholder="#E8302A or Red"
+            />
+            <View style={styles.editActions}>
               <Button
                 mode="contained"
                 onPress={handleSave}
-                style={{ flex: 1 }}
+                loading={saving}
+                disabled={saving}
                 buttonColor={theme.colors.primary}
-                textColor={theme.colors.onPrimary}
+                textColor="#FFF"
+                style={{ flex: 1 }}
               >
                 Save Override
               </Button>
               <Button
                 mode="outlined"
-                onPress={() => setEditing(false)}
+                onPress={() => { setEditing(false); setTeamName(team.name); setJerseyColor(team.jersey_color || ''); }}
                 style={{ flex: 1 }}
                 textColor={theme.colors.onSurface}
               >
                 Cancel
               </Button>
-            </>
-          ) : (
-            <Button
-              mode="outlined"
-              onPress={() => setEditing(true)}
-              icon="pencil"
-              textColor={theme.colors.primary}
-              style={{ borderColor: theme.colors.primary }}
-            >
-              Admin Override Edit
-            </Button>
-          )}
-        </View>
-      </Surface>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.displayFields}>
+            <View style={styles.fieldRow}>
+              <Text style={styles.fieldLabel}>Team Name</Text>
+              <Text style={[styles.fieldValue, { color: theme.colors.onSurface }]}>{teamName}</Text>
+            </View>
+            <View style={styles.fieldRow}>
+              <Text style={styles.fieldLabel}>Jersey Color</Text>
+              <View style={styles.colorRow}>
+                <View style={[styles.colorSwatch, { backgroundColor: jerseyColor || '#CCCCCC' }]} />
+                <Text style={[styles.fieldValue, { color: theme.colors.onSurface }]}>{jerseyColor || 'Not set'}</Text>
+              </View>
+            </View>
+            <View style={styles.fieldRow}>
+              <Text style={styles.fieldLabel}>Organization</Text>
+              <Text style={[styles.fieldValue, { color: theme.colors.onSurface }]}>{team.organizations?.name || '—'}</Text>
+            </View>
+            <View style={styles.fieldRow}>
+              <Text style={styles.fieldLabel}>Players</Text>
+              <Text style={[styles.fieldValue, { color: theme.colors.onSurface }]}>{roster.length}</Text>
+            </View>
+            <View style={styles.fieldRow}>
+              <Text style={styles.fieldLabel}>Created</Text>
+              <Text style={[styles.fieldValue, { color: theme.colors.onSurface }]}>
+                {team.created_at ? new Date(team.created_at).toLocaleDateString() : '—'}
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
 
       {/* Roster */}
-      <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>
-        Roster ({roster.length})
-      </Text>
-
+      <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Roster ({roster.length})</Text>
       {roster.length === 0 ? (
-        <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-          No players on this team
-        </Text>
+        <Text style={styles.emptyText}>No players on this team</Text>
       ) : (
-        roster.map((player) => (
-          <TouchableOpacity
-            key={player.id}
-            onPress={() =>
-              router.push({ pathname: '/(admin)/players/[id]', params: { id: player.id } })
-            }
-            activeOpacity={0.75}
-          >
-            <Surface
-              style={[styles.playerRow, { backgroundColor: theme.colors.surfaceVariant }]}
-              elevation={0}
-            >
-              <View style={styles.jerseyBadge}>
-                <Text style={[styles.jerseyNum, { color: theme.colors.primary }]}>
-                  #{player.jerseyNumber}
-                </Text>
+        roster.map((p) => {
+          const pStatus = p.status ? p.status.charAt(0).toUpperCase() + p.status.slice(1) : 'Active';
+          return (
+            <View key={p.id} style={[styles.playerRow, CARD_SHADOW]}>
+              <View style={[styles.jerseyBadge, { backgroundColor: jerseyColor || '#AAAAAA' }]}>
+                <Text style={styles.jerseyNum}>#{p.jersey_number ?? '—'}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.playerName, { color: theme.colors.onSurface }]}>
-                  {player.name}
-                  {player.role ? (
-                    <Text style={{ color: theme.colors.secondary }}> · {player.role}</Text>
-                  ) : null}
-                </Text>
-                <Text style={[styles.playerPos, { color: theme.colors.onSurfaceVariant }]}>
-                  {player.positions.join(' / ')}
-                </Text>
+                <Text style={[styles.playerName, { color: theme.colors.onSurface }]}>{p.name}</Text>
+                <Text style={styles.playerPos}>{p.position || 'Unassigned'}</Text>
               </View>
-              <StatusPill status={player.status} />
-            </Surface>
-          </TouchableOpacity>
-        ))
+              <StatusPill status={pStatus} />
+            </View>
+          );
+        })
       )}
+
+      {/* ── Delete Team ── */}
+      <Button
+        mode="outlined"
+        onPress={handleDeleteTeam}
+        textColor={theme.colors.error}
+        style={[styles.deleteTeamBtn, { borderColor: theme.colors.error }]}
+        icon="trash-can-outline"
+      >
+        Delete Team (Admin Override)
+      </Button>
+
     </ScrollView>
   );
 }
 
-function MetaItem({ label, value, theme, editable, onEdit }) {
-  return (
-    <View style={styles.metaItem}>
-      <Text style={[styles.metaLabel, { color: theme.colors.onSurfaceVariant }]}>{label}</Text>
-      {editable ? (
-        <TextInput
-          value={value}
-          onChangeText={onEdit}
-          dense
-          mode="outlined"
-          outlineColor={theme.colors.outline}
-          activeOutlineColor={theme.colors.primary}
-          textColor={theme.colors.onSurface}
-          style={{ height: 36, fontSize: 13, marginTop: 2 }}
-        />
-      ) : (
-        <Text style={[styles.metaValue, { color: theme.colors.onSurface }]}>{value}</Text>
-      )}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { padding: SPACING.md, gap: SPACING.sm },
-  heroCard: {
-    borderRadius: 16,
-    padding: SPACING.md,
-    gap: SPACING.sm,
-    borderWidth: 1,
-    borderColor: '#1C2437',
-    marginBottom: SPACING.sm,
-  },
-  heroRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md },
-  heroName: { fontSize: 22, fontWeight: '800' },
-  heroSub: { fontSize: 13, marginTop: 2 },
-  editInput: { backgroundColor: 'transparent', marginBottom: SPACING.xs },
-  metaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
-  metaItem: { minWidth: 100 },
-  metaLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '600' },
-  metaValue: { fontSize: 14, fontWeight: '700', marginTop: 2 },
-  auditLabel: { fontSize: 11, fontStyle: 'italic' },
-  actionRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.xs },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.xs,
-  },
-  playerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 10,
-    padding: SPACING.md,
-    gap: SPACING.md,
-    marginBottom: SPACING.xs,
-    borderWidth: 1,
-    borderColor: '#2A3348',
-  },
-  jerseyBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#00E67614',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  jerseyNum: { fontSize: 13, fontWeight: '800' },
+  container: { padding: SPACING.md, paddingBottom: 60 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginBottom: SPACING.md },
+  backText: { fontSize: 14, fontWeight: '700' },
+  infoCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: SPACING.md, marginBottom: SPACING.lg },
+  infoStatusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  editBtnText: { fontSize: 13, fontWeight: '700' },
+  editForm: { gap: SPACING.sm },
+  formInput: { backgroundColor: '#FFFFFF' },
+  editActions: { flexDirection: 'row', gap: SPACING.sm },
+  displayFields: { gap: SPACING.sm },
+  fieldRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  fieldLabel: { fontSize: 12, color: '#AAAAAA', fontWeight: '600' },
+  fieldValue: { fontSize: 14, fontWeight: '700' },
+  colorRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  colorSwatch: { width: 16, height: 16, borderRadius: 8, borderWidth: 1, borderColor: '#EEEEEE' },
+  sectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: SPACING.sm },
+  emptyText: { fontSize: 13, color: '#AAAAAA', fontStyle: 'italic', paddingVertical: 8 },
+  playerRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, padding: SPACING.sm, gap: SPACING.md, marginBottom: SPACING.xs },
+  jerseyBadge: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  jerseyNum: { fontSize: 12, fontWeight: '900', color: '#FFFFFF' },
   playerName: { fontSize: 14, fontWeight: '700' },
-  playerPos: { fontSize: 12, marginTop: 2 },
-  emptyText: { fontSize: 13, fontStyle: 'italic' },
+  playerPos: { fontSize: 11, color: '#AAAAAA', marginTop: 2 },
 });

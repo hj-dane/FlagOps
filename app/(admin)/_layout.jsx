@@ -1,121 +1,38 @@
 // app/(admin)/_layout.jsx
 import React from 'react';
-import { Tabs } from 'expo-router';
-import { useTheme } from 'react-native-paper';
-import { View, Text, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Stack } from 'expo-router';
+import { View, StyleSheet, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import RightSidebar from '../../components/RightSidebar';
 
-const PENDING_COUNT = 3;
-
+// Auth guard removed — handled centrally in app/_layout.jsx AuthGate.
+// This layout just owns the admin stack + sidebar overlay.
 export default function AdminLayout() {
-  const theme = useTheme();
-
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#EEEEEE',
-          borderTopWidth: 1,
-          height: 62,
-          paddingBottom: 8,
-          paddingTop: 4,
-        },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: '#AAAAAA',
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
-      }}
-    >
-      <Tabs.Screen
-        name="dashboard/index"
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="view-dashboard-outline" size={22} color={color} />
-          ),
+    <SafeAreaView style={styles.layoutWrapper} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={false} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: "fade",
         }}
-      />
-      <Tabs.Screen
-        name="approvals/index"
-        options={{
-          title: 'Approvals',
-          tabBarIcon: ({ color }) => (
-            <View>
-              <MaterialCommunityIcons name="check-circle-outline" size={22} color={color} />
-              {PENDING_COUNT > 0 && (
-                <View style={[styles.badge, { backgroundColor: theme.colors.primary }]}>
-                  <Text style={styles.badgeText}>{PENDING_COUNT}</Text>
-                </View>
-              )}
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="organizations/index"
-        options={{
-          title: 'Orgs',
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="office-building-outline" size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="teams/index"
-        options={{
-          title: 'Teams',
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="shield-outline" size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="players/index"
-        options={{
-          title: 'Players',
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="account-group-outline" size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="leaderboard/index"
-        options={{
-          title: 'Rankings',
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="podium" size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile/index"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="account-circle-outline" size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen name="organizations/[id]" options={{ href: null }} />
-      <Tabs.Screen name="teams/[id]"          options={{ href: null }} />
-      <Tabs.Screen name="players/[id]"        options={{ href: null }} />
-      <Tabs.Screen name="approvals/[id]"      options={{ href: null }} />
-    </Tabs>
+      >
+        <Stack.Screen name="home/dashboard" />
+        <Stack.Screen name="approvals/index" />
+        <Stack.Screen name="organizations/index" />
+        <Stack.Screen name="organizations/[id]" />
+        <Stack.Screen name="teams/index" />
+        <Stack.Screen name="teams/[id]" />
+        <Stack.Screen name="players/index" />
+        <Stack.Screen name="players/[id]" />
+        <Stack.Screen name="leaderboard/index" />
+      </Stack>
+
+      <RightSidebar />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -8,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  badgeText: { fontSize: 9, fontWeight: '900', color: '#FFFFFF' },
+  layoutWrapper: { flex: 1, backgroundColor: '#F5F5F5' },
 });
