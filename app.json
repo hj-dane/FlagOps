@@ -33,7 +33,7 @@
     "plugins": [
       "expo-router"
     ],
-    "scheme": "flagops://reset-password",
+    "scheme": "flagops",
     "experiments": {
       "typedRoutes": false
     },
