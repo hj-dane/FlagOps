@@ -1,4 +1,3 @@
-// app/_layout.jsx
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { Provider as JotaiProvider, useAtom } from 'jotai';
@@ -42,7 +41,7 @@ function AuthGate() {
           }
         }
       } catch (e) {
-        // ignore
+        // for errors
       } finally {
         setSessionReady(true);
       }
@@ -74,8 +73,6 @@ function AuthGate() {
     }
   }, [userProfile, sessionReady, navReady]);
 
-  // Do NOT declare <Stack.Screen name="index"> — app/index.jsx is auto-registered
-  // and declaring it explicitly here causes the "No route named index" warning.
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" />

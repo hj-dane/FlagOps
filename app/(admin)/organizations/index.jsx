@@ -1,4 +1,3 @@
-// app/(admin)/organizations/index.jsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { View, FlatList, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, Searchbar, useTheme, ActivityIndicator } from 'react-native-paper';
@@ -20,7 +19,6 @@ export default function AllOrganizationsScreen() {
 
   const fetchOrgs = useCallback(async () => {
     try {
-      // Read stored counts directly from organizations table
       const { data, error } = await supabase
         .from('organizations')
         .select('id, name, active_teams, active_players, organizer_count, created_at')

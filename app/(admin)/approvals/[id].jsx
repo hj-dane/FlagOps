@@ -1,4 +1,3 @@
-// app/(admin)/approvals/[id].jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, useTheme, Button, TextInput, Divider, ActivityIndicator } from 'react-native-paper';
@@ -52,7 +51,6 @@ export default function ApprovalDetailScreen() {
     try {
       const { change_type, entity_type, entity_id, proposed_data } = request;
 
-      // ── Execute the actual data change ──
       if (change_type === 'delete') {
         if (entity_type === 'team') {
           const { error } = await supabase.from('teams').delete().eq('id', entity_id);
@@ -68,7 +66,6 @@ export default function ApprovalDetailScreen() {
           if (error) throw error;
         }
       } else if (change_type === 'edit' && proposed_data) {
-        // Apply proposed changes to the entity
         const table = entity_type === 'tournament' ? 'tournaments'
           : entity_type === 'team' ? 'teams'
           : entity_type === 'player' ? 'players'
@@ -80,7 +77,6 @@ export default function ApprovalDetailScreen() {
           if (error) throw error;
         }
       } else if (change_type === 'create') {
-        // For creates: just activate the entity
         const table = entity_type === 'tournament' ? 'tournaments'
           : entity_type === 'team' ? 'teams'
           : entity_type === 'player' ? 'players'
@@ -92,7 +88,6 @@ export default function ApprovalDetailScreen() {
         }
       }
 
-      // ── Mark request as approved ──
       const { error: approveErr } = await supabase
         .from('approval_requests')
         .update({ status: 'approved' })
@@ -153,7 +148,6 @@ export default function ApprovalDetailScreen() {
   const current = request.current_data || {};
   const proposed = request.proposed_data || {};
 
-  // Build diff rows: union of all keys from both sides
   const allKeys = Array.from(new Set([...Object.keys(current), ...Object.keys(proposed)]));
   const changedKeys = allKeys.filter((k) => String(current[k] ?? '') !== String(proposed[k] ?? ''));
 
@@ -172,7 +166,6 @@ export default function ApprovalDetailScreen() {
         </View>
       )}
 
-      {/* Header card */}
       <View style={[styles.headerCard, CARD_SHADOW]}>
         <View style={styles.headerTopRow}>
           <View style={[styles.changeTypeBadge, { backgroundColor: changeColor + '22' }]}>
@@ -201,7 +194,6 @@ export default function ApprovalDetailScreen() {
         </View>
       </View>
 
-      {/* Diff view */}
       <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
         {request.change_type === 'create' ? 'New Record' :
          request.change_type === 'delete' ? 'Record to Delete' : 'Changes'}
@@ -209,7 +201,6 @@ export default function ApprovalDetailScreen() {
 
       {request.change_type === 'edit' ? (
         <View style={[styles.diffTable, CARD_SHADOW]}>
-          {/* Header row */}
           <View style={[styles.diffHeaderRow, { backgroundColor: theme.colors.secondaryContainer }]}>
             <Text style={[styles.diffHeaderCell, { flex: 1.2 }]}>Field</Text>
             <Text style={styles.diffHeaderCell}>Current</Text>
@@ -243,7 +234,6 @@ export default function ApprovalDetailScreen() {
           ))}
         </View>
       ) : (
-        // Delete — show all current fields with red tint
         <View style={[styles.diffTable, CARD_SHADOW, { borderColor: '#FFCDD2', borderWidth: 1 }]}>
           {Object.entries(current).map(([key, val]) => (
             <View key={key} style={[styles.diffRow, { backgroundColor: '#FFF5F5' }]}>
@@ -256,7 +246,6 @@ export default function ApprovalDetailScreen() {
         </View>
       )}
 
-      {/* Actions */}
       {!alreadyReviewed && (
         <View style={styles.actionRow}>
           <Button
@@ -287,7 +276,6 @@ export default function ApprovalDetailScreen() {
         </View>
       )}
 
-      {/* Reject bottom sheet */}
       <Modal visible={showRejectSheet} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>

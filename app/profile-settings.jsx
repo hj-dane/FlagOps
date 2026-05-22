@@ -1,5 +1,3 @@
-// app/profile-settings.jsx
-// Shared profile & settings screen — accessible from both admin and organizer sidebar
 import React, { useState, useCallback } from 'react';
 import {
   View, ScrollView, StyleSheet, TouchableOpacity, Alert,
@@ -26,7 +24,7 @@ export default function ProfileSettingsScreen() {
   const router = useRouter();
   const profile = useAtomValue(userProfileAtom);
 
-  // ── Change password state ──
+  // ── Change password 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -36,7 +34,7 @@ export default function ProfileSettingsScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
-  // ── Notification preferences state ──
+  // ── Notification preferences 
   const [notifPrefs, setNotifPrefs] = useState({
     approvalUpdates: true,
     matchReminders: true,
@@ -62,14 +60,12 @@ export default function ProfileSettingsScreen() {
 
     setSavingPassword(true);
     try {
-      // Re-authenticate with current password first
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: profile?.email || '',
         password: currentPassword,
       });
       if (signInError) throw new Error('Current password is incorrect.');
 
-      // Update to new password
       const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
       if (updateError) throw updateError;
 
@@ -85,7 +81,6 @@ export default function ProfileSettingsScreen() {
     }
   }, [currentPassword, newPassword, confirmPassword, profile]);
 
-  // ── Save notification prefs ──
   const handleSaveNotifs = useCallback(async () => {
     setSavingNotifs(true);
     try {
@@ -113,7 +108,6 @@ export default function ProfileSettingsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      {/* Fixed back button above scroll */}
       <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
         <MaterialCommunityIcons name="arrow-left" size={20} color={theme.colors.primary} />
         <Text style={[styles.backText, { color: theme.colors.primary }]}>Back</Text>
@@ -148,7 +142,7 @@ export default function ProfileSettingsScreen() {
 
         <Divider style={{ marginVertical: SPACING.md }} />
 
-        {/* Read-only fields */}
+        {/* Read-only*/}
         {profile?.organizationName && (
           <View style={styles.fieldRow}>
             <View style={styles.fieldIconWrap}>
@@ -164,7 +158,6 @@ export default function ProfileSettingsScreen() {
         )}
       </View>
 
-      {/* ── Security ── */}
       <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Security</Text>
       <View style={[styles.card, CARD_SHADOW]}>
         <TouchableOpacity
@@ -183,7 +176,6 @@ export default function ProfileSettingsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Notification preferences ── */}
       <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Notifications</Text>
       <View style={[styles.card, CARD_SHADOW]}>
         {NOTIF_OPTIONS.map(({ key, label, desc }, idx) => (
@@ -221,7 +213,6 @@ export default function ProfileSettingsScreen() {
 
       </ScrollView>
 
-      {/* ── Change Password Modal ── */}
       <Modal visible={showPasswordModal} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
@@ -287,7 +278,6 @@ export default function ProfileSettingsScreen() {
                 }
               />
 
-              {/* Strength hint */}
               {newPassword.length > 0 && (
                 <View style={styles.strengthRow}>
                   {[1,2,3,4].map((i) => (

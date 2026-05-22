@@ -1,4 +1,3 @@
-// app/(organizer)/players/index.jsx
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity,
@@ -29,7 +28,6 @@ export default function PlayersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Add player modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -41,12 +39,11 @@ export default function PlayersScreen() {
     if (!profile?.organization_id) return;
     try {
       const [playerOrgRes, teamOrgRes] = await Promise.all([
-        // Fetch players linked to this org via junction table
         supabase
           .from('player_organizations')
           .select('player_id, players(id, name, jersey_number, position, status, team_id, teams(name))')
           .eq('organization_id', profile.organization_id),
-        // Fetch teams linked to this org via junction table
+
         supabase
           .from('team_organizations')
           .select('team_id, teams(id, name, status, organization_id)')
@@ -95,7 +92,6 @@ export default function PlayersScreen() {
     try {
       const playerName = addForm.name.trim();
 
-      // Step 1: Check if player already exists on this team
       const { data: existingPlayer } = await supabase
         .from('players')
         .select('id, name, jersey_number, position, status, team_id, teams(name)')
@@ -106,7 +102,6 @@ export default function PlayersScreen() {
       let player = existingPlayer;
 
       if (existingPlayer) {
-        // Player exists — just link to this org
         const { error: linkErr } = await supabase
           .from('player_organizations')
           .insert({ player_id: existingPlayer.id, organization_id: profile.organization_id });
@@ -120,7 +115,6 @@ export default function PlayersScreen() {
         }
         Alert.alert('Player added', `"${playerName}" already exists and has been added to your organization.`);
       } else {
-        // Check jersey duplicate within team
         const duplicate = players.some(
           (p) => p.team_id === addForm.teamId && String(p.jersey_number) === addForm.jerseyNumber.trim()
         );
@@ -130,7 +124,6 @@ export default function PlayersScreen() {
           return;
         }
 
-        // Player does not exist — create and link
         const { data: newPlayer, error: createErr } = await supabase
           .from('players')
           .insert({
@@ -168,7 +161,6 @@ export default function PlayersScreen() {
     }
   };
 
-  // Active teams in the same org
   const orgActiveTeams = localTeams;
 
   if (loading) {
@@ -241,7 +233,6 @@ export default function PlayersScreen() {
         onPress={() => setShowAddModal(true)}
       />
 
-      {/* Add Player Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>

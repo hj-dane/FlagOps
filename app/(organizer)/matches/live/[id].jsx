@@ -1,4 +1,3 @@
-// app/(organizer)/matches/live/[id].jsx
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text, useTheme, Button, Surface, ActivityIndicator } from 'react-native-paper';
@@ -21,24 +20,20 @@ export default function LiveMatchScreen() {
   const [match, setMatch] = useState(() => matches.find((m) => m.id === id) || null);
   const [loadingMatch, setLoadingMatch] = useState(!match);
 
-  // Timer: countdown from 50:00
   const [seconds, setSeconds] = useState(MATCH_DURATION_SECONDS);
   const [timerRunning, setTimerRunning] = useState(false);
   const timerRef = useRef(null);
 
-  // Stat recording
   const [roster, setRoster] = useState([]);
   const [loadingRoster, setLoadingRoster] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState(null);
   const [selectedStat, setSelectedStat] = useState(STAT_TYPES[0]);
   const [recordingStats, setRecordingStats] = useState(false);
 
-  // ── Fetch match and set status to 'live' on mount ──
   useEffect(() => {
     const initMatch = async () => {
       setLoadingMatch(true);
       try {
-        // Always fetch fresh from DB
         const { data, error } = await supabase
           .from('matches')
           .select('id, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score, status, location, date_time')
@@ -46,7 +41,6 @@ export default function LiveMatchScreen() {
           .single();
         if (error) throw error;
 
-        // Set status to live if not already completed/canceled
         if (data.status !== 'completed' && data.status !== 'canceled') {
           await supabase
             .from('matches')
@@ -69,14 +63,12 @@ export default function LiveMatchScreen() {
     initMatch();
   }, [id]);
 
-  // ── Fetch both team rosters once match is loaded ──
   useEffect(() => {
     if (!match) return;
 
     const fetchRosters = async () => {
       setLoadingRoster(true);
       try {
-        // Fetch the match fresh from DB to ensure we have team IDs
         const { data: freshMatch, error: matchErr } = await supabase
           .from('matches')
           .select('id, home_team_id, away_team_id, home_team_name, away_team_name')
@@ -96,7 +88,6 @@ export default function LiveMatchScreen() {
           return;
         }
 
-        // Fetch all players in those teams — no status filter
         const { data, error } = await supabase
           .from('players')
           .select('id, name, jersey_number, position, team_id, status')
@@ -114,7 +105,6 @@ export default function LiveMatchScreen() {
     fetchRosters();
   }, [match?.id]);
 
-  // ── Timer: countdown, auto-end at 0 ──
   useEffect(() => {
     if (timerRunning) {
       timerRef.current = setInterval(() => {
@@ -157,7 +147,6 @@ export default function LiveMatchScreen() {
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   };
 
-  // ── Score update ──
   const updateScore = useCallback(async (homeScore, awayScore) => {
     const { error } = await supabase
       .from('matches')
@@ -188,7 +177,6 @@ export default function LiveMatchScreen() {
     else updateScore(home, away + pts);
   };
 
-  // ── Record stat ──
   const recordStat = async () => {
     if (!selectedPlayerId) { Alert.alert('Select a player first'); return; }
     setRecordingStats(true);
@@ -210,7 +198,6 @@ export default function LiveMatchScreen() {
     }
   };
 
-  // ── End match manually ──
   const endMatch = () => {
     Alert.alert('End Match', 'Mark this match as completed? This will lock the scoreboard.', [
       { text: 'Cancel', style: 'cancel' },
@@ -249,7 +236,6 @@ export default function LiveMatchScreen() {
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={22} color={theme.colors.onSurface} />
@@ -258,7 +244,6 @@ export default function LiveMatchScreen() {
         <View style={[styles.liveDot, { backgroundColor: APP_THEME.colors.primary }]} />
       </View>
 
-      {/* Scoreboard */}
       <Surface style={styles.scoreBoard} elevation={0}>
         <View style={styles.scoreRow}>
           <View style={styles.teamCol}>
@@ -275,7 +260,6 @@ export default function LiveMatchScreen() {
           </View>
         </View>
 
-        {/* Timer controls */}
         <View style={styles.timerControls}>
           <Button
             mode={timerRunning ? 'outlined' : 'contained'}
@@ -299,7 +283,6 @@ export default function LiveMatchScreen() {
         </View>
       </Surface>
 
-      {/* Scoring actions */}
       <Text style={styles.sectionLabel}>SCORING</Text>
       <View style={styles.scoringGrid}>
         <View style={styles.scoringCol}>
@@ -321,7 +304,6 @@ export default function LiveMatchScreen() {
         </View>
       </View>
 
-      {/* Stat recording */}
       <Text style={styles.sectionLabel}>RECORD STAT</Text>
       <Surface style={styles.statPanel} elevation={0}>
         <Text style={styles.statSubLabel}>Select Player</Text>
@@ -371,7 +353,6 @@ export default function LiveMatchScreen() {
         </Button>
       </Surface>
 
-      {/* End match */}
       <Button
         mode="outlined"
         onPress={endMatch}

@@ -1,4 +1,3 @@
-// app/(admin)/home/dashboard.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import {
   SafeAreaView, View, Text, StyleSheet, TouchableOpacity,
@@ -119,7 +118,7 @@ export default function AdminDashboard() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[APP_THEME.colors.primary]} />}
       >
-        {/* Pending alert banner */}
+        
         {stats.pendingApprovals > 0 && (
           <TouchableOpacity
             style={styles.alertBanner}
@@ -146,7 +145,7 @@ export default function AdminDashboard() {
           </View>
         )}
 
-        {/* Stat cards */}
+      
         <View style={styles.grid}>
           {summaryCards.map(({ label, value, icon, color, bg, onPress }) => (
             <TouchableOpacity key={label} style={[styles.card, CARD_SHADOW]} onPress={onPress} activeOpacity={0.75}>
@@ -162,7 +161,6 @@ export default function AdminDashboard() {
           ))}
         </View>
 
-        {/* Quick actions */}
         <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
         <View style={styles.actionsRow}>
           {[
@@ -182,7 +180,7 @@ export default function AdminDashboard() {
           ))}
         </View>
 
-        {/* Recent requests */}
+        
         <Text style={styles.sectionTitle}>RECENT REQUESTS</Text>
         {recentRequests.length === 0 ? (
           <View style={styles.emptyCard}>
@@ -235,7 +233,6 @@ const styles = StyleSheet.create({
   menuBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', ...CARD_SHADOW },
   scrollContent: { paddingHorizontal: SPACING.md, paddingBottom: 40 },
 
-  // Alert / all clear
   alertBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF3E0', borderRadius: 14, padding: SPACING.md, marginBottom: SPACING.md, gap: SPACING.sm, borderWidth: 1, borderColor: '#FFB74D' },
   alertIconWrap: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#FFE0B2', alignItems: 'center', justifyContent: 'center' },
   alertTitle: { fontSize: 14, fontWeight: '800', color: '#E65100' },
@@ -243,7 +240,6 @@ const styles = StyleSheet.create({
   allClearBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9', borderRadius: 14, padding: SPACING.md, marginBottom: SPACING.md, gap: SPACING.sm },
   allClearText: { fontSize: 13, color: '#2E7D32', fontWeight: '600' },
 
-  // Stat grid
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: SPACING.md },
   card: { width: '47%', backgroundColor: '#FFF', borderRadius: 16, padding: SPACING.md, gap: 6 },
   cardIconWrap: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
@@ -251,13 +247,11 @@ const styles = StyleSheet.create({
   cardLabel: { fontSize: 12, fontWeight: '600', color: '#AAAAAA' },
   cardArrow: { position: 'absolute', top: SPACING.md, right: SPACING.md },
 
-  // Quick actions
   sectionTitle: { fontSize: 11, fontWeight: '800', color: APP_THEME.colors.primary, letterSpacing: 1.5, marginBottom: SPACING.sm, marginTop: SPACING.md },
   actionsRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm, flexWrap: 'wrap' },
   actionChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: SPACING.md, paddingVertical: 10, borderRadius: 20 },
   actionChipText: { fontSize: 13, fontWeight: '700' },
 
-  // Recent requests
   requestCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 14, padding: SPACING.md, gap: SPACING.sm, marginBottom: SPACING.xs },
   reqIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   reqName: { fontSize: 14, fontWeight: '700', color: APP_THEME.colors.onSurface },
@@ -266,8 +260,6 @@ const styles = StyleSheet.create({
   statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   statusPillText: { fontSize: 11, fontWeight: '800' },
 
-
-  // Empty
   emptyCard: { backgroundColor: '#FFF', borderRadius: 14, padding: SPACING.lg, alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm },
   emptyText: { fontSize: 13, color: '#AAAAAA', fontStyle: 'italic' },
 });

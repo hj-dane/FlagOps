@@ -1,6 +1,3 @@
-// components/ScreenHeader.jsx
-// Shared top header used by every main screen in (admin) and (organizer).
-// Shows the screen title on the left and the sidebar hamburger on the right.
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -14,7 +11,7 @@ export default function ScreenHeader({ title, onBack }) {
 
   return (
     <View style={styles.row}>
-      {/* Left: optional back button OR title */}
+      {/* Left:*/}
       {onBack ? (
         <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <MaterialCommunityIcons name="arrow-left" size={22} color={APP_THEME.colors.secondary} />
@@ -24,7 +21,7 @@ export default function ScreenHeader({ title, onBack }) {
         <Text style={styles.title}>{title}</Text>
       )}
 
-      {/* Right: sidebar open button */}
+      {/* Right:*/}
       <TouchableOpacity
         onPress={() => setIsSidebarOpen(true)}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

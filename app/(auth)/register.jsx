@@ -57,12 +57,11 @@ export default function RegisterScreen() {
     setLoading(true);
 
     try {
-      // 1. Sign up user - Trigger will automatically create profile
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim(),
         password: password,
         options: {
-          data: { name: fullName.trim() } // Pass name to user_metadata for trigger
+          data: { name: fullName.trim() } 
         }
       });
 
@@ -71,7 +70,6 @@ export default function RegisterScreen() {
 
       const userId = authData.user.id;
 
-      // 2. Locate or create organization
       let targetOrgId = null;
       const cleanedOrgName = organizationName.trim();
 
@@ -94,18 +92,16 @@ export default function RegisterScreen() {
         targetOrgId = newOrg.id;
       }
 
-      // 3. UPDATE the existing profile (created by trigger) with organization_id
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ 
           organization_id: targetOrgId,
-          name: fullName.trim() // Ensure name is set correctly
+          name: fullName.trim()
         })
         .eq('id', userId);
 
       if (updateError) throw updateError;
 
-      // 5. Alert and redirect to login
       setRegisteredEmail(email.trim());
       Alert.alert(
         'Registration Successful! 🎉',

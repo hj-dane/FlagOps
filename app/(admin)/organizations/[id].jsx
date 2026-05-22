@@ -1,4 +1,3 @@
-// app/(admin)/organizations/[id].jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, ScrollView, StyleSheet, TouchableOpacity, Alert,
@@ -27,7 +26,6 @@ export default function OrgDetailScreen() {
   const [activeTab, setActiveTab] = useState('teams');
   const [query, setQuery] = useState('');
 
-  // Assign organizer modal
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignEmail, setAssignEmail] = useState('');
   const [assigning, setAssigning] = useState(false);
@@ -60,12 +58,10 @@ export default function OrgDetailScreen() {
 
   useEffect(() => { fetchOrgData(); }, [fetchOrgData]);
 
-  // Assign organizer by email — find user in profiles and link to this org
   const handleAssignOrganizer = async () => {
     if (!assignEmail.trim()) { Alert.alert('Email required'); return; }
     setAssigning(true);
     try {
-      // Look up profile by email
       const { data: profileData, error: lookupErr } = await supabase
         .from('profiles')
         .select('id, name, email, role, organization_id')
@@ -82,7 +78,6 @@ export default function OrgDetailScreen() {
         return;
       }
 
-      // Update profile to link to this org and set role
       const { error: updateErr } = await supabase
         .from('profiles')
         .update({ organization_id: id, role: 'organizer' })
@@ -101,7 +96,6 @@ export default function OrgDetailScreen() {
     }
   };
 
-  // Remove organizer — unlink from org
   const handleRemoveOrganizer = (orgUser) => {
     Alert.alert('Remove Organizer', `Remove ${orgUser.name || orgUser.email} from this organization?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -169,7 +163,6 @@ export default function OrgDetailScreen() {
         </View>
       </Surface>
 
-      {/* Tabs */}
       <View style={styles.tabRow}>
         {['teams', 'players', 'organizers'].map((tab) => (
           <TouchableOpacity
@@ -250,7 +243,6 @@ export default function OrgDetailScreen() {
           )}
         </>
       ) : (
-        /* Organizers tab */
         <>
           <Button
             mode="contained"
@@ -291,7 +283,6 @@ export default function OrgDetailScreen() {
         </>
       )}
 
-      {/* Assign Organizer Modal */}
       <Modal visible={showAssignModal} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>

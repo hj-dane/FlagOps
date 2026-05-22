@@ -1,4 +1,3 @@
-// app/(organizer)/home/dashboard.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { ActivityIndicator } from 'react-native-paper';
@@ -29,14 +28,12 @@ export default function OrganizerDashboard() {
       const now = new Date().toISOString();
 
       const [liveRes, tourRes, matchCountRes, requestRes, rejectionRes] = await Promise.all([
-        // Live matches
         supabase
           .from('matches')
           .select('id, home_team_name, away_team_name, home_score, away_score, status')
           .eq('organization_id', profile.organization_id)
           .eq('status', 'live'),
 
-        // Upcoming tournaments (start_date in future)
         supabase
           .from('tournaments')
           .select('id, name, start_date, end_date, location, level')
@@ -45,13 +42,11 @@ export default function OrganizerDashboard() {
           .order('start_date', { ascending: true })
           .limit(3),
 
-        // Total match count
         supabase
           .from('matches')
           .select('id', { count: 'exact' })
           .eq('organization_id', profile.organization_id),
 
-        // Pending requests
         supabase
           .from('approval_requests')
           .select('id, entity_type, entity_name, change_type, created_at')
@@ -59,7 +54,6 @@ export default function OrganizerDashboard() {
           .eq('status', 'pending')
           .order('created_at', { ascending: false }),
 
-        // Most recent rejection
         supabase
           .from('approval_requests')
           .select('id, entity_type, entity_name, rejection_reason')
@@ -107,7 +101,6 @@ export default function OrganizerDashboard() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[APP_THEME.colors.primary]} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* Rejection alert */}
         {recentRejection && (
           <TouchableOpacity
             style={styles.rejectionBanner}
@@ -121,7 +114,6 @@ export default function OrganizerDashboard() {
           </TouchableOpacity>
         )}
 
-        {/* Stats row */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, CARD_SHADOW]}>
             <MaterialCommunityIcons name="whistle-outline" size={22} color={APP_THEME.colors.primary} />
@@ -140,7 +132,6 @@ export default function OrganizerDashboard() {
           </View>
         </View>
 
-        {/* Live matches */}
         {liveMatches.length > 0 && (
           <>
             <View style={styles.sectionHeader}>
@@ -176,7 +167,6 @@ export default function OrganizerDashboard() {
           </>
         )}
 
-        {/* Upcoming tournaments */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionLabel}>UPCOMING TOURNAMENTS</Text>
           <TouchableOpacity onPress={() => router.push('/(organizer)/tournaments')}>
@@ -208,7 +198,6 @@ export default function OrganizerDashboard() {
           ))
         )}
 
-        {/* Pending requests */}
         {pendingRequests.length > 0 && (
           <>
             <View style={styles.sectionHeader}>

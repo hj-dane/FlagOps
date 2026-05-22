@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSetAtom } from 'jotai';
-import { supabase } from '../../utils/supabase'; // Reference to your root Supabase configuration
+import { supabase } from '../../utils/supabase'; 
 import { userProfileAtom } from '../../store/globalStore';
 import { APP_THEME, SPACING, CARD_SHADOW } from '../../theme';
 
@@ -36,7 +36,6 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      // 1. Authenticate with Supabase Auth Engine
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
@@ -45,7 +44,6 @@ export default function LoginScreen() {
       if (authError) throw authError;
 
       if (authData?.user) {
-        // 2. Fetch the corresponding custom profile metadata row
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select(`
@@ -60,7 +58,6 @@ export default function LoginScreen() {
 
         if (profileError) throw profileError;
 
-        // Flatten database relational structure into standard atom layout
         const continuousProfile = {
           id: profile.id,
           name: profile.name,
@@ -69,10 +66,8 @@ export default function LoginScreen() {
           organizationName: profile.organizations?.name || '',
         };
 
-        // 3. Hydrate state globally 
         setUserProfile(continuousProfile);
 
-        // 4. Group Route Redirects (Strictly without parent sidebar side effects)
         if (continuousProfile.role === 'admin') {
            router.replace('/(admin)/home/dashboard');
         } else {

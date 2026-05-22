@@ -1,4 +1,3 @@
-// app/(organizer)/tournaments/index.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, FlatList, StyleSheet, TouchableOpacity,
@@ -132,7 +131,6 @@ export default function TournamentsScreen() {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScreenHeader title="Tournaments" />
 
-      {/* Filter tabs */}
       <View style={styles.filterRow}>
         {FILTER_TABS.map((f) => (
           <Chip
@@ -171,7 +169,6 @@ export default function TournamentsScreen() {
         onPress={() => setShowCreateModal(true)}
       />
 
-      {/* Create Tournament Modal */}
       <Modal visible={showCreateModal} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>

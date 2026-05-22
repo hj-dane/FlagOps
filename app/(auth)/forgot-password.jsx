@@ -1,4 +1,3 @@
-// app/(auth)/forgot-password.jsx
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -49,7 +48,7 @@ export default function ForgotPasswordScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.kav}
       >
-        {/* Back Button */}
+        
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <MaterialCommunityIcons
             name="arrow-left"
@@ -59,7 +58,6 @@ export default function ForgotPasswordScreen() {
           <Text style={styles.backText}>Back to Sign In</Text>
         </TouchableOpacity>
 
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoMark}>
             <Text style={styles.logoIcon}>🔑</Text>
@@ -68,10 +66,8 @@ export default function ForgotPasswordScreen() {
           <Text style={styles.tagline}>PASSWORD RECOVERY</Text>
         </View>
 
-        {/* Card */}
         <View style={styles.card}>
           {sent ? (
-            // ── Success State ──
             <View style={styles.successContainer}>
               <View style={styles.successIcon}>
                 <MaterialCommunityIcons
@@ -104,7 +100,6 @@ export default function ForgotPasswordScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            // ── Form State ──
             <>
               <Text style={styles.cardTitle}>Forgot Password?</Text>
               <Text style={styles.cardSubtitle}>

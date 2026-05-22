@@ -1,4 +1,3 @@
-// app/(organizer)/teams/[id].jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, ScrollView, StyleSheet, TouchableOpacity,
@@ -40,7 +39,6 @@ export default function OrganizerTeamDetailScreen() {
   const [addForm, setAddForm] = useState({ name: '', jerseyNumber: '', position: POSITIONS[0], role: 'None' });
   const [adding, setAdding] = useState(false);
 
-  // ── Fetch team + roster ──
   const fetchTeam = useCallback(async () => {
     setLoading(true);
     try {
@@ -74,7 +72,6 @@ export default function OrganizerTeamDetailScreen() {
 
   useEffect(() => { fetchTeam(); }, [fetchTeam]);
 
-  // ── Inline field save (direct — no approval needed for minor edits) ──
   const saveField = async (field, value) => {
     setSavingField(true);
     try {
@@ -93,7 +90,6 @@ export default function OrganizerTeamDetailScreen() {
     }
   };
 
-  // ── Add player (reuse if exists, create if not) ──
   const handleAddPlayer = async () => {
     if (!addForm.name.trim()) { Alert.alert('Name required'); return; }
 
@@ -102,7 +98,6 @@ export default function OrganizerTeamDetailScreen() {
       const playerName = addForm.name.trim();
       const orgId = team?.organization_id || profile?.organization_id;
 
-      // Check if player already exists on this team
       const { data: existing } = await supabase
         .from('players')
         .select('id, name, jersey_number, position, status, team_id')
@@ -113,7 +108,6 @@ export default function OrganizerTeamDetailScreen() {
       let player = existing;
 
       if (existing) {
-        // Player exists — just link to this org
         const { error: linkErr } = await supabase
           .from('player_organizations')
           .insert({ player_id: existing.id, organization_id: orgId });
@@ -121,7 +115,6 @@ export default function OrganizerTeamDetailScreen() {
         if (linkErr && linkErr.code !== '23505') throw linkErr;
         Alert.alert('Player added', `"${playerName}" already exists and has been linked to your organization.`);
       } else {
-        // Check jersey duplicate
         const duplicate = roster.some((p) => String(p.jersey_number) === addForm.jerseyNumber.trim());
         if (duplicate) {
           Alert.alert('Duplicate jersey number', 'That number is already taken on this team.');
@@ -129,7 +122,6 @@ export default function OrganizerTeamDetailScreen() {
           return;
         }
 
-        // Create new player
         const { data: newPlayer, error } = await supabase
           .from('players')
           .insert({
@@ -147,7 +139,6 @@ export default function OrganizerTeamDetailScreen() {
         if (error) throw error;
         player = newPlayer;
 
-        // Link to org
         if (orgId) {
           await supabase
             .from('player_organizations')
@@ -169,7 +160,6 @@ export default function OrganizerTeamDetailScreen() {
     }
   };
 
-  // ── Remove player (pending approval) ──
   const handleRemovePlayer = (player) => {
     Alert.alert('Remove Player', `Remove ${player.name}? This requires admin approval.`, [
       { text: 'Cancel', style: 'cancel' },
@@ -202,7 +192,6 @@ export default function OrganizerTeamDetailScreen() {
     ]);
   };
 
-  // ── Delete team (pending approval) ──
   const handleDeleteTeam = () => {
     Alert.alert('Delete Team', `Delete "${teamName}"? This requires admin approval.`, [
       { text: 'Cancel', style: 'cancel' },
@@ -269,14 +258,12 @@ export default function OrganizerTeamDetailScreen() {
         </View>
       )}
 
-      {/* ── Team Info Card ── */}
       <View style={[styles.infoCard, CARD_SHADOW]}>
         <View style={styles.infoStatusRow}>
           <StatusPill status={statusLabel} />
         </View>
         <Divider style={{ marginVertical: SPACING.sm }} />
 
-        {/* Team Name */}
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Team Name</Text>
           {editingField === 'name' ? (
@@ -310,7 +297,6 @@ export default function OrganizerTeamDetailScreen() {
           )}
         </View>
 
-        {/* Jersey Color */}
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Jersey Color</Text>
           {editingField === 'color' ? (
@@ -368,7 +354,6 @@ export default function OrganizerTeamDetailScreen() {
         </View>
       </View>
 
-      {/* ── Roster ── */}
       <View style={styles.rosterHeader}>
         <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Roster ({roster.length})</Text>
         {!deletePending && (
@@ -439,7 +424,6 @@ export default function OrganizerTeamDetailScreen() {
         </Button>
       )}
 
-      {/* Add Player Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>

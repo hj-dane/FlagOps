@@ -1,4 +1,3 @@
-// components/RightSidebar.jsx
 import React from 'react';
 import { View, StyleSheet, Dimensions, Animated, TouchableWithoutFeedback } from 'react-native';
 import { Text, Button, Divider, IconButton } from 'react-native-paper';
@@ -9,7 +8,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../utils/supabase';
 
 const { width } = Dimensions.get('window');
-const SIDEBAR_WIDTH = width * 0.75;
+const SIDEBAR_WIDTH = width * 0.60;
 
 export default function RightSidebar() {
   const [isOpen, setIsOpen] = useAtom(isSidebarOpenAtom);

@@ -1,4 +1,3 @@
-// app/(admin)/teams/index.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, FlatList, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native';
 import { Text, Searchbar, useTheme, ActivityIndicator } from 'react-native-paper';

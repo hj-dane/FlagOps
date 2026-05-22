@@ -1,4 +1,3 @@
-// app/(admin)/teams/[id].jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { Text, TextInput, Button, Divider, useTheme, ActivityIndicator } from 'react-native-paper';
@@ -209,7 +208,6 @@ export default function AdminTeamDetailScreen() {
         )}
       </View>
 
-      {/* Roster */}
       <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Roster ({roster.length})</Text>
       {roster.length === 0 ? (
         <Text style={styles.emptyText}>No players on this team</Text>
@@ -231,7 +229,6 @@ export default function AdminTeamDetailScreen() {
         })
       )}
 
-      {/* ── Delete Team ── */}
       <Button
         mode="outlined"
         onPress={handleDeleteTeam}

@@ -1,4 +1,3 @@
-// app/(organizer)/teams/index.jsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, FlatList, StyleSheet, TouchableOpacity,
@@ -30,7 +29,6 @@ export default function TeamsScreen() {
   const fetchTeams = useCallback(async () => {
     if (!profile?.organization_id) return;
     try {
-      // Fetch teams linked to this org via junction table
       const { data, error } = await supabase
         .from('team_organizations')
         .select('team_id, teams(id, name, jersey_color, status, organization_id)')
@@ -74,7 +72,6 @@ export default function TeamsScreen() {
     try {
       const teamName = createForm.name.trim();
 
-      // Step 1: Check if team already exists
       const { data: existingTeam } = await supabase
         .from('teams')
         .select('id, name, jersey_color, status')
@@ -84,14 +81,12 @@ export default function TeamsScreen() {
       let team = existingTeam;
 
       if (existingTeam) {
-        // Team exists — just link it to this org
         const { error: linkErr } = await supabase
           .from('team_organizations')
           .insert({ team_id: existingTeam.id, organization_id: profile.organization_id });
 
         if (linkErr) {
           if (linkErr.code === '23505') {
-            // Already linked
             Alert.alert('Already added', `"${teamName}" is already in your organization.`);
             return;
           }
@@ -99,7 +94,6 @@ export default function TeamsScreen() {
         }
         Alert.alert('Team added', `"${teamName}" already exists and has been added to your organization.`);
       } else {
-        // Team does not exist — create it and link
         const { data: newTeam, error: createErr } = await supabase
           .from('teams')
           .insert({
@@ -202,7 +196,6 @@ export default function TeamsScreen() {
         onPress={() => setShowCreateModal(true)}
       />
 
-      {/* Create Team Modal */}
       <Modal visible={showCreateModal} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>

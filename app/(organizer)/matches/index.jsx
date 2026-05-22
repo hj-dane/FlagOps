@@ -1,4 +1,3 @@
-// app/(organizer)/matches/index.jsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   View, FlatList, StyleSheet, TouchableOpacity,
@@ -16,7 +15,6 @@ import ScreenHeader from '../../../components/ScreenHeader';
 
 const FILTER_TABS = ['All', 'Upcoming', 'Live', 'Completed'];
 
-// Helper: format date_time (timestamptz) for display
 function formatDateTime(dateTimeStr) {
   if (!dateTimeStr) return '—';
   const d = new Date(dateTimeStr);
@@ -25,7 +23,6 @@ function formatDateTime(dateTimeStr) {
   return `${date} · ${time}`;
 }
 
-// Helper: combine date string + time string into ISO datetime for Supabase
 function toISODateTime(date, time) {
   if (!date) return null;
   const combined = time ? `${date}T${time}:00` : `${date}T00:00:00`;
@@ -71,7 +68,6 @@ export default function MatchesScreen() {
     setIsLoading(false);
   }, [profile]);
 
-  // Refetch every time this screen comes into focus (e.g. returning from live match)
   useFocusEffect(
     useCallback(() => { fetchMatches(); }, [fetchMatches])
   );
@@ -231,7 +227,6 @@ export default function MatchesScreen() {
         onPress={() => setShowAddModal(true)}
       />
 
-      {/* Add Match Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
@@ -240,7 +235,6 @@ export default function MatchesScreen() {
               <Text style={styles.modalSub}>Organizers can schedule matches directly</Text>
               <Divider style={{ marginVertical: SPACING.md }} />
 
-              {/* Tournament picker */}
               <Text style={styles.pickerLabel}>Tournament (optional)</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
                 <TouchableOpacity
@@ -257,7 +251,6 @@ export default function MatchesScreen() {
                 ))}
               </ScrollView>
 
-              {/* Home team picker */}
               <Text style={styles.pickerLabel}>Home Team *</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
                 {activeTeams.length === 0 ? (
@@ -272,7 +265,6 @@ export default function MatchesScreen() {
                 )}
               </ScrollView>
 
-              {/* Away team picker */}
               <Text style={styles.pickerLabel}>Away Team *</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
                 {activeTeams.map((t) => (

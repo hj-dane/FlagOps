@@ -1,4 +1,3 @@
-// app/(organizer)/players/[id].jsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, ActivityIndicator, useTheme, TextInput, Button, Divider } from 'react-native-paper';
@@ -36,12 +35,10 @@ export default function PlayerDetailsScreen() {
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
 
-  // Inline edit state
-  const [editingField, setEditingField] = useState(null); // 'jerseyNumber' | 'position'
+  const [editingField, setEditingField] = useState(null); 
   const [jerseyNumber, setJerseyNumber] = useState('');
   const [position, setPosition] = useState('');
 
-  // Reassign modal
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [reassigning, setReassigning] = useState(false);
@@ -68,7 +65,6 @@ export default function PlayerDetailsScreen() {
       setJerseyNumber(String(playerRes.data.jersey_number ?? ''));
       setPosition(playerRes.data.position || '');
 
-      // Aggregate stats from match_stats
       const stats = statsRes.data || [];
       setStatSummary({
         tds: stats.filter((s) => s.stat_type?.toLowerCase() === 'td').reduce((acc, s) => acc + (s.value || 1), 0),
@@ -85,7 +81,6 @@ export default function PlayerDetailsScreen() {
 
   useEffect(() => { fetchPlayer(); }, [fetchPlayer]);
 
-  // Minor inline edit — direct save, no approval needed
   const saveInlineField = async (field, value) => {
     setSaving(true);
     try {
@@ -106,7 +101,6 @@ export default function PlayerDetailsScreen() {
     }
   };
 
-  // Reassign to another team — submit as change_request (needs approval)
   const handleReassign = async () => {
     if (!selectedTeamId || selectedTeamId === player.team_id) {
       Alert.alert('Select a different team');
@@ -134,7 +128,6 @@ export default function PlayerDetailsScreen() {
     }
   };
 
-  // Remove player — submit as delete request (needs approval)
   const handleRemove = () => {
     Alert.alert('Remove Player', `Remove ${player?.name}? This requires admin approval.`, [
       { text: 'Cancel', style: 'cancel' },
@@ -192,14 +185,12 @@ export default function PlayerDetailsScreen() {
     ? player.status.charAt(0).toUpperCase() + player.status.slice(1).toLowerCase()
     : 'Pending';
 
-  // Active teams in the same org for reassignment
   const orgTeams = teams.filter((t) => t.status === 'active' || t.status === 'Active');
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <ScreenHeader title="Player Profile" onBack={() => router.back()} />
 
-      {/* Header card */}
       <View style={[styles.profileHeaderCard, CARD_SHADOW]}>
         <View style={styles.avatarBadge}>
           <Text style={styles.avatarJerseyText}>#{player.jersey_number || '00'}</Text>
@@ -213,11 +204,9 @@ export default function PlayerDetailsScreen() {
         </View>
       </View>
 
-      {/* Inline editable fields */}
       <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Details</Text>
       <View style={[styles.detailCard, CARD_SHADOW]}>
 
-        {/* Jersey Number — inline edit, direct save */}
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Jersey Number</Text>
           {editingField === 'jerseyNumber' ? (
@@ -248,7 +237,6 @@ export default function PlayerDetailsScreen() {
 
         <Divider />
 
-        {/* Position — inline edit, direct save */}
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Position</Text>
           {editingField === 'position' ? (
@@ -274,7 +262,6 @@ export default function PlayerDetailsScreen() {
 
         <Divider />
 
-        {/* Team — reassign via approval */}
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Team</Text>
           <TouchableOpacity style={styles.inlineDisplayRow} onPress={() => setShowReassignModal(true)}>
@@ -284,7 +271,6 @@ export default function PlayerDetailsScreen() {
         </View>
       </View>
 
-      {/* Stats */}
       <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Season Stats</Text>
       <View style={styles.statsGrid}>
         <StatTile label="TDs" value={statSummary.tds} />
@@ -293,7 +279,6 @@ export default function PlayerDetailsScreen() {
         <StatTile label="Sacks" value={statSummary.sacks} />
       </View>
 
-      {/* Remove action */}
       <Divider style={{ marginVertical: SPACING.md }} />
       <Button
         mode="outlined"
@@ -307,7 +292,6 @@ export default function PlayerDetailsScreen() {
         Request Player Removal
       </Button>
 
-      {/* Reassign Modal */}
       <Modal visible={showReassignModal} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>

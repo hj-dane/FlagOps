@@ -1,4 +1,3 @@
-// app/(organizer)/leaderboard/index.jsx
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, useTheme, Menu, ActivityIndicator } from 'react-native-paper';
@@ -74,7 +73,6 @@ export default function OrgLeaderboardScreen() {
   const fetchLeaderboardData = async (tournamentId) => {
     setLoadingData(true);
     try {
-      // ── Team rankings: calculate wins/losses from completed matches ──
       const { data: matchesData, error: matchesError } = await supabase
         .from('matches')
         .select('id, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score')
@@ -83,7 +81,6 @@ export default function OrgLeaderboardScreen() {
 
       if (matchesError) throw matchesError;
 
-      // Tally wins/losses/points per team from match results
       const tally = {};
       (matchesData || []).forEach((m) => {
         const homeId = m.home_team_id;
@@ -109,7 +106,6 @@ export default function OrgLeaderboardScreen() {
 
       setTeamRankings(formattedTeams);
 
-      // ── Player stats: aggregate from match_stats for this tournament ──
       const { data: statsData, error: statsError } = await supabase
         .from('match_stats')
         .select('player_id, stat_type, value, players(id, name, position, teams(name))')
@@ -121,7 +117,6 @@ export default function OrgLeaderboardScreen() {
 
       if (statsError) throw statsError;
 
-      // Aggregate stats per player
       const playerMap = {};
       (statsData || []).forEach((s) => {
         const pid = s.player_id;
@@ -213,7 +208,6 @@ export default function OrgLeaderboardScreen() {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScreenHeader title="Leaderboard" />
 
-      {/* Tournament Picker */}
       {tournaments.length > 0 && selectedTournament ? (
         <Menu
           visible={menuVisible}
@@ -240,7 +234,6 @@ export default function OrgLeaderboardScreen() {
         </View>
       )}
 
-      {/* Tabs */}
       <View style={{ height: 48, marginBottom: SPACING.md }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
           {VIEW_TABS.map((tab) => (

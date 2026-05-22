@@ -1,5 +1,3 @@
-// theme.js — React Native Paper theme matching Sportware design language
-// Light background · Bold red accent · White cards · Black score surfaces
 
 import { MD3LightTheme } from 'react-native-paper';
 
@@ -7,31 +5,31 @@ export const APP_THEME = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
-    primary: '#E8302A',           // Bold red — buttons, active states, pills
+    primary: '#E8302A',           
     primaryContainer: '#FFDAD8',
     onPrimary: '#FFFFFF',
     onPrimaryContainer: '#410002',
-    secondary: '#1A1A1A',         // Near-black — headings
+    secondary: '#1A1A1A',         
     onSecondary: '#FFFFFF',
-    background: '#F5F5F5',        // Light grey page background
-    surface: '#FFFFFF',           // White card surface
-    surfaceVariant: '#F0F0F0',    // Slightly off-white — input backgrounds, rows
-    onSurface: '#1A1A1A',         // Near-black text
-    onSurfaceVariant: '#888888',  // Grey secondary text
-    outline: '#E0E0E0',           // Subtle dividers and borders
+    background: '#F5F5F5',        
+    surface: '#FFFFFF',           
+    surfaceVariant: '#F0F0F0',    
+    onSurface: '#1A1A1A',         
+    onSurfaceVariant: '#888888',  
+    outline: '#E0E0E0',           
     outlineVariant: '#EEEEEE',
     error: '#E8302A',
     onError: '#FFFFFF',
-    tertiary: '#FF6B00',          // Orange — pending/warning states
+    tertiary: '#FF6B00',          
     onTertiary: '#FFFFFF',
-    inverseSurface: '#1A1A1A',    // Score card dark surface
+    inverseSurface: '#1A1A1A',    
     inverseOnSurface: '#FFFFFF',
     shadow: '#00000014',
   },
   roundness: 12,
 };
 
-// Status pill colors — light theme
+// Status pill colors 
 export const STATUS_COLORS = {
   Active:    { bg: '#E8F5E9', text: '#2E7D32' },
   Pending:   { bg: '#FFF3E0', text: '#E65100' },
@@ -50,7 +48,6 @@ export const SPACING = {
   xl: 32,
 };
 
-// Card shadow preset — replaces dark border approach from old theme
 export const CARD_SHADOW = {
   shadowColor: '#000000',
   shadowOffset: { width: 0, height: 2 },

@@ -1,4 +1,3 @@
-// app/(admin)/players/index.jsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { Text, Searchbar, useTheme, ActivityIndicator, Chip } from 'react-native-paper';
@@ -78,7 +77,6 @@ export default function AllPlayersScreen() {
         elevation={0}
       />
 
-      {/* Position filter */}
       <View style={styles.filterRow}>
         {POSITIONS.map((pos) => (
           <Chip

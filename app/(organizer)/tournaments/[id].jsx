@@ -1,4 +1,3 @@
-// app/(organizer)/tournaments/[id].jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, ScrollView, StyleSheet, TouchableOpacity,
@@ -45,7 +44,6 @@ export default function TournamentDetailScreen() {
       setTournament(data);
       initEditForm(data);
 
-      // Check for a pending edit request
       const { data: pendingReq } = await supabase
         .from('approval_requests')
         .select('id')
@@ -56,7 +54,6 @@ export default function TournamentDetailScreen() {
         .maybeSingle();
       setHasPendingEdit(!!pendingReq);
 
-      // Fetch matches for this tournament
       const { data: matchData } = await supabase
         .from('matches')
         .select('id, home_team_name, away_team_name, date_time, status')
@@ -84,7 +81,6 @@ export default function TournamentDetailScreen() {
     });
   };
 
-  // Submit edit as a change_request (pending admin approval)
   const handleSaveEdit = async () => {
     if (!editForm.name.trim()) { Alert.alert('Name required'); return; }
     setSaving(true);
@@ -125,7 +121,6 @@ export default function TournamentDetailScreen() {
     }
   };
 
-  // Submit cancellation request
   const handleCancelTournament = () => {
     Alert.alert('Cancel Tournament', `Request to cancel "${tournament?.name}"? This requires admin approval.`, [
       { text: 'No', style: 'cancel' },
@@ -185,7 +180,6 @@ export default function TournamentDetailScreen() {
         </View>
       )}
 
-      {/* Info Card */}
       <View style={[styles.infoCard, CARD_SHADOW]}>
         <View style={styles.infoHeaderRow}>
           <StatusPill status={statusLabel} />
@@ -215,7 +209,6 @@ export default function TournamentDetailScreen() {
         ))}
       </View>
 
-      {/* Matches */}
       <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Matches ({matches.length})</Text>
       {matches.length === 0 ? (
         <Text style={styles.emptyText}>No matches in this tournament yet</Text>
@@ -241,7 +234,6 @@ export default function TournamentDetailScreen() {
         })
       )}
 
-      {/* Cancel button */}
       {tournament.status !== 'canceled' && tournament.status !== 'Canceled' && (
         <Button
           mode="outlined"
@@ -256,7 +248,6 @@ export default function TournamentDetailScreen() {
         </Button>
       )}
 
-      {/* Edit Modal */}
       <Modal visible={showEditModal} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>

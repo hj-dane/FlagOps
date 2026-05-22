@@ -13,14 +13,19 @@
       "backgroundColor": "#FFFFFF"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.haileydain.flagops",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.haileydain.flagops"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,6 +36,12 @@
     "scheme": "flagops://reset-password",
     "experiments": {
       "typedRoutes": false
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e927d1d8-051d-4d03-864c-1905c8315c0e"
+      }
     }
   }
 }

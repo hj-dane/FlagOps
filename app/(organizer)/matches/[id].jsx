@@ -1,4 +1,3 @@
-// app/(organizer)/matches/[id].jsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text, Surface, useTheme, Button, Divider, ActivityIndicator } from 'react-native-paper';
@@ -32,13 +31,11 @@ export default function MatchDetailScreen() {
         .single();
       if (error) throw error;
       setMatch(data);
-      // Sync into global store
       setMatches((prev) => {
         const exists = prev.find((m) => m.id === id);
         return exists ? prev.map((m) => m.id === id ? data : m) : [...prev, data];
       });
 
-      // Fetch match stats
       const { data: statData } = await supabase
         .from('match_stats')
         .select('id, player_name, stat_type, recorded_at')
@@ -111,7 +108,6 @@ export default function MatchDetailScreen() {
     <ScrollView style={{ backgroundColor: theme.colors.background }} contentContainerStyle={styles.container}>
       <ScreenHeader title="Match" onBack={() => router.back()} />
 
-      {/* Hero Scoreboard */}
       <Surface style={styles.heroScoreCard} elevation={0}>
         <View style={styles.statusRow}>
           <StatusPill status={match.status || 'Upcoming'} />
@@ -153,7 +149,6 @@ export default function MatchDetailScreen() {
         )}
       </Surface>
 
-      {/* Stats timeline */}
       <Text style={[styles.sectionHeading, { color: theme.colors.onSurface }]}>Match Stats ({stats.length})</Text>
       {stats.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -178,7 +173,6 @@ export default function MatchDetailScreen() {
         ))
       )}
 
-      {/* Cancel action */}
       {!isCanceled && (isUpcoming || isLive) && (
         <>
           <Divider style={{ marginVertical: SPACING.md }} />

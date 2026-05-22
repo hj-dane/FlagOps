@@ -1,4 +1,3 @@
-// app/(organizer)/stats/index.jsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, FlatList, StyleSheet, TouchableOpacity, Alert,
@@ -16,7 +15,6 @@ import ScreenHeader from '../../../components/ScreenHeader';
 
 const STAT_TYPES = ['TD', 'INT', 'Flag Pulled', 'Sack', 'Completion', 'Rush'];
 
-// Stat entries older than 24h on a completed match are read-only
 function isStatReadOnly(stat) {
   if (stat.match_status !== 'completed') return false;
   return new Date() - new Date(stat.recorded_at) > 24 * 60 * 60 * 1000;
@@ -39,7 +37,6 @@ export default function PlayerStatsScreen() {
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // ── Fetch players for this org (two-step via team IDs) ──
   useEffect(() => {
     if (!profile?.organization_id) return;
     const fetchPlayers = async () => {
@@ -65,7 +62,6 @@ export default function PlayerStatsScreen() {
     fetchPlayers();
   }, [profile]);
 
-  // ── Fetch stat log for selected player ──
   const fetchStats = useCallback(async (playerId) => {
     setLoadingStats(true);
     try {
@@ -95,7 +91,6 @@ export default function PlayerStatsScreen() {
     fetchStats(player.id);
   };
 
-  // ── Edit stat ──
   const openEdit = (stat) => {
     setEditStat(stat);
     setEditStatType(stat.stat_type);
@@ -123,7 +118,6 @@ export default function PlayerStatsScreen() {
     }
   };
 
-  // ── Delete stat ──
   const deleteStat = (stat) => {
     Alert.alert('Remove Entry', `Remove this ${stat.stat_type} entry?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -152,7 +146,6 @@ export default function PlayerStatsScreen() {
     ), [players, query]
   );
 
-  // Aggregate stats from match_stats log for the selected player
   const statSummary = {
     tds: playerStats.filter((s) => s.stat_type?.toLowerCase() === 'td').reduce((acc, s) => acc + (s.value || 1), 0),
     ints: playerStats.filter((s) => s.stat_type?.toLowerCase() === 'int').reduce((acc, s) => acc + (s.value || 1), 0),
@@ -228,7 +221,7 @@ export default function PlayerStatsScreen() {
         )
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: SPACING.xl * 2 }}>
-          {/* Player header */}
+          
           <View style={[styles.playerHeader, CARD_SHADOW]}>
             <TouchableOpacity onPress={() => setSelectedPlayer(null)} style={styles.backBtn}>
               <MaterialCommunityIcons name="arrow-left" size={18} color={theme.colors.primary} />
@@ -295,7 +288,6 @@ export default function PlayerStatsScreen() {
         </ScrollView>
       )}
 
-      {/* Edit Stat Modal */}
       <Modal visible={!!editStat} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>

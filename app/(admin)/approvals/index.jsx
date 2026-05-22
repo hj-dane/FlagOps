@@ -1,4 +1,3 @@
-// app/(admin)/approvals/index.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, FlatList, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, useTheme, ActivityIndicator, Chip } from 'react-native-paper';

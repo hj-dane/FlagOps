@@ -1,4 +1,3 @@
-// components/StatusPill.jsx
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { STATUS_COLORS } from '../theme';

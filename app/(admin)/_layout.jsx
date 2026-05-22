@@ -1,12 +1,9 @@
-// app/(admin)/_layout.jsx
 import React from 'react';
 import { Stack } from 'expo-router';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import RightSidebar from '../../components/RightSidebar';
 
-// Auth guard removed — handled centrally in app/_layout.jsx AuthGate.
-// This layout just owns the admin stack + sidebar overlay.
 export default function AdminLayout() {
   return (
     <SafeAreaView style={styles.layoutWrapper} edges={['top']}>

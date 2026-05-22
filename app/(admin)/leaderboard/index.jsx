@@ -1,4 +1,3 @@
-// app/(admin)/leaderboard/index.jsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, Alert } from 'react-native';
 import { Text, useTheme, Button, ActivityIndicator } from 'react-native-paper';
@@ -53,7 +52,6 @@ export default function AdminLeaderboardScreen() {
 
   useEffect(() => { fetchLeaderboard(); }, [fetchLeaderboard]);
 
-  // Recalculate = same as fetch (calculated live from matches)
   const handleGenerate = async () => {
     setIsGenerating(true);
     await fetchLeaderboard();

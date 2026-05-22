@@ -1,4 +1,3 @@
-// app/(admin)/players/[id].jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, Alert, TouchableOpacity, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, Surface, useTheme, TextInput, Button, Divider, ActivityIndicator } from 'react-native-paper';
@@ -36,7 +35,6 @@ export default function AdminPlayerDetailScreen() {
   const [jerseyNumber, setJerseyNumber] = useState('');
   const [position, setPosition] = useState('');
 
-  // Reassign modal
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [reassigning, setReassigning] = useState(false);
@@ -103,7 +101,6 @@ export default function AdminPlayerDetailScreen() {
     }
   };
 
-  // Admin can reassign player to any team across any org directly
   const handleReassign = async () => {
     if (!selectedTeamId || selectedTeamId === player.team_id) {
       Alert.alert('Select a different team');
@@ -235,7 +232,6 @@ export default function AdminPlayerDetailScreen() {
         ))}
       </View>
 
-      {/* Reassign Modal — admin can move to any team across any org */}
       <Modal visible={showReassignModal} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
