@@ -28,7 +28,7 @@
     "plugins": [
       "expo-router"
     ],
-    "scheme": "flagfootball",
+    "scheme": "flagops://reset-password",
     "experiments": {
       "typedRoutes": false
     }

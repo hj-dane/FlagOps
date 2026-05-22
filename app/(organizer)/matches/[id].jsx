@@ -1,496 +1,226 @@
 // app/(organizer)/matches/[id].jsx
-import React, { useState } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
-import {
-  Text,
-  Surface,
-  useTheme,
-  Button,
-  Divider,
-} from 'react-native-paper';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { Text, Surface, useTheme, Button, Divider, ActivityIndicator } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAtom } from 'jotai';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { matchesAtom } from '../../../store/globalStore';
+import { supabase } from '../../../utils/supabase';
 import StatusPill from '../../../components/StatusPill';
-import { MATCHES, MATCH_STATS, PLAYERS, TEAMS } from '../../../data/mockData';
-import { SPACING } from '../../../theme';
+import { SPACING, CARD_SHADOW } from '../../../theme';
+import ScreenHeader from '../../../components/ScreenHeader';
 
 export default function MatchDetailScreen() {
   const { id } = useLocalSearchParams();
   const theme = useTheme();
   const router = useRouter();
 
-  const match = MATCHES.find((m) => m.id === id);
-  const stats = MATCH_STATS[id] ?? [];
+  const [matches, setMatches] = useAtom(matchesAtom);
+  const [match, setMatch] = useState(() => matches.find((m) => m.id === id) || null);
+  const [loading, setLoading] = useState(!match);
+  const [cancelling, setCancelling] = useState(false);
+  const [stats, setStats] = useState([]);
 
-  const homeRoster = PLAYERS.filter((p) => p.teamId === match?.homeTeamId);
-  const awayRoster = PLAYERS.filter((p) => p.teamId === match?.awayTeamId);
+  const fetchMatch = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('matches')
+        .select('id, home_team_name, away_team_name, date_time, location, status, tournament_id, home_score, away_score')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      setMatch(data);
+      // Sync into global store
+      setMatches((prev) => {
+        const exists = prev.find((m) => m.id === id);
+        return exists ? prev.map((m) => m.id === id ? data : m) : [...prev, data];
+      });
 
-  const [cancelPending, setCancelPending] = useState(false);
+      // Fetch match stats
+      const { data: statData } = await supabase
+        .from('match_stats')
+        .select('id, player_name, stat_type, recorded_at')
+        .eq('match_id', id)
+        .order('recorded_at', { ascending: false });
+      setStats(statData || []);
+    } catch (err) {
+      Alert.alert('Error', 'Could not load match.');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { fetchMatch(); }, [fetchMatch]);
+
+  const handleCancelMatch = () => {
+    Alert.alert('Cancel Match', 'Submit a cancellation request for admin approval?', [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Submit Request', style: 'destructive', onPress: async () => {
+          setCancelling(true);
+          try {
+            const { error } = await supabase.from('approval_requests').insert({
+              entity_type: 'match',
+              entity_id: id,
+              entity_name: `${match.home_team_name} vs ${match.away_team_name}`,
+              change_type: 'delete',
+              status: 'pending',
+              current_data: {
+                home_team_name: match.home_team_name,
+                away_team_name: match.away_team_name,
+                date_time: match.date_time,
+                status: match.status,
+              },
+              proposed_data: { status: 'Canceled' },
+            });
+            if (error) throw error;
+            Alert.alert('Submitted', 'Cancellation request sent to admin.');
+          } catch (err) {
+            Alert.alert('Error', 'Could not submit cancellation request.');
+          } finally {
+            setCancelling(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
 
   if (!match) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
         <Text style={{ color: theme.colors.onSurfaceVariant }}>Match not found.</Text>
       </View>
     );
   }
 
-  const isLive = match.status === 'Live';
-  const isCompleted = match.status === 'Completed';
-  const isUpcoming = match.status === 'Upcoming';
-  const isCanceled = match.status === 'Canceled';
-
-  const handleCancelMatch = () => {
-    Alert.alert(
-      'Cancel Match',
-      'Submit a cancellation request to admin?',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Submit Request',
-          onPress: () => {
-            // TODO: POST /change_requests { type: 'cancel_match', matchId: id }
-            setCancelPending(true);
-          },
-        },
-      ]
-    );
-  };
-
-  // Group stats by team for the stats section
-  const homeStats = stats.filter((s) => s.team === match.homeTeam);
-  const awayStats = stats.filter((s) => s.team === match.awayTeam);
+  const isLive = match.status === 'live';
+  const isUpcoming = match.status === 'upcoming';
+  const isCanceled = match.status === 'canceled' || match.status === 'Canceled';
 
   return (
-    <ScrollView
-      style={{ backgroundColor: theme.colors.background }}
-      contentContainerStyle={styles.container}
-    >
-      {/* Back button */}
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={styles.backBtn}
-      >
-        <MaterialCommunityIcons
-          name="arrow-left"
-          size={20}
-          color={theme.colors.primary}
-        />
-        <Text style={[styles.backText, { color: theme.colors.primary }]}>Matches</Text>
-      </TouchableOpacity>
+    <ScrollView style={{ backgroundColor: theme.colors.background }} contentContainerStyle={styles.container}>
+      <ScreenHeader title="Match" onBack={() => router.back()} />
 
-      {/* Cancel pending banner */}
-      {cancelPending && (
-        <View style={[styles.pendingBanner, { backgroundColor: '#FFB30018', borderColor: '#FFB30055' }]}>
-          <MaterialCommunityIcons name="clock-outline" size={14} color="#FFB300" />
-          <Text style={[styles.pendingBannerText, { color: '#FFB300' }]}>
-            Cancellation request pending admin approval
-          </Text>
+      {/* Hero Scoreboard */}
+      <Surface style={styles.heroScoreCard} elevation={0}>
+        <View style={styles.statusRow}>
+          <StatusPill status={match.status || 'Upcoming'} />
+          {isLive && (
+            <View style={styles.liveIndicator}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveLabel}>LIVE</Text>
+            </View>
+          )}
         </View>
-      )}
 
-      {/* Scoreboard hero */}
-      <Surface
-        style={[
-          styles.scoreCard,
-          { backgroundColor: theme.colors.surface },
-          isLive && { borderColor: '#00E67655' },
-        ]}
-        elevation={0}
-      >
-        {/* Tournament + meta */}
-        <Text style={[styles.tournamentName, { color: theme.colors.onSurfaceVariant }]}>
-          {match.tournamentName}
-        </Text>
-        <Text style={[styles.matchMeta, { color: theme.colors.onSurfaceVariant }]}>
-          {match.date} · {match.time} · {match.location}
+        <Text style={styles.metaSubtext}>
+          {match.date_time ? new Date(match.date_time).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—'}{match.location ? ` · ${match.location}` : ''}
         </Text>
 
-        <Divider style={{ backgroundColor: theme.colors.outline, marginVertical: SPACING.sm }} />
-
-        {/* Score row */}
-        <View style={styles.scoreRow}>
-          {/* Home */}
-          <View style={styles.teamBlock}>
-            <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
-              {match.homeTeam}
-            </Text>
-            <Text style={[styles.scoreNum, { color: theme.colors.primary }]}>
-              {match.homeScore}
-            </Text>
-            <Text style={[styles.teamLabel, { color: theme.colors.onSurfaceVariant }]}>HOME</Text>
+        <View style={styles.scoreboardMain}>
+          <View style={styles.teamColumn}>
+            <Text style={styles.teamLabelName} numberOfLines={1}>{match.home_team_name}</Text>
+            <Text style={styles.pointsDisplay}>{match.home_score ?? 0}</Text>
           </View>
-
-          {/* Centre */}
-          <View style={styles.centreBlock}>
-            <StatusPill status={match.status} />
-            {(isLive || isCompleted) && (
-              <Text style={[styles.vsDash, { color: theme.colors.onSurfaceVariant }]}>—</Text>
-            )}
-            {isUpcoming && (
-              <Text style={[styles.vsText, { color: theme.colors.onSurfaceVariant }]}>VS</Text>
-            )}
-          </View>
-
-          {/* Away */}
-          <View style={[styles.teamBlock, { alignItems: 'flex-end' }]}>
-            <Text
-              style={[styles.teamName, { color: theme.colors.onSurface, textAlign: 'right' }]}
-              numberOfLines={2}
-            >
-              {match.awayTeam}
-            </Text>
-            <Text style={[styles.scoreNum, { color: theme.colors.primary }]}>
-              {match.awayScore}
-            </Text>
-            <Text style={[styles.teamLabel, { color: theme.colors.onSurfaceVariant }]}>AWAY</Text>
+          <Text style={styles.vsDivider}>VS</Text>
+          <View style={[styles.teamColumn, { alignItems: 'flex-end' }]}>
+            <Text style={[styles.teamLabelName, { textAlign: 'right' }]} numberOfLines={1}>{match.away_team_name}</Text>
+            <Text style={styles.pointsDisplay}>{match.away_score ?? 0}</Text>
           </View>
         </View>
 
-        <Divider style={{ backgroundColor: theme.colors.outline, marginVertical: SPACING.sm }} />
-
-        {/* Primary CTA */}
-        {isLive && (
+        {(isUpcoming || isLive) && (
           <Button
             mode="contained"
-            icon="scoreboard"
-            onPress={() =>
-              router.push({ pathname: '/(organizer)/matches/live/[id]', params: { id: match.id } })
-            }
-            buttonColor={theme.colors.primary}
-            textColor={theme.colors.onPrimary}
-            style={styles.ctaBtn}
-            contentStyle={{ paddingVertical: 4 }}
+            icon={isLive ? 'play-circle' : 'whistle'}
+            buttonColor={isLive ? '#E53935' : theme.colors.primary}
+            onPress={() => router.push({ pathname: '/(organizer)/matches/live/[id]', params: { id: match.id } })}
+            style={styles.actionBtn}
+            textColor="#FFF"
           >
-            Go to Live Scoreboard
+            {isLive ? 'Resume Live Tracking' : 'Launch Scoreboard'}
           </Button>
-        )}
-
-        {isUpcoming && !cancelPending && (
-          <View style={styles.ctaRow}>
-            <Button
-              mode="contained"
-              icon="play"
-              onPress={() =>
-                router.push({ pathname: '/(organizer)/matches/live/[id]', params: { id: match.id } })
-              }
-              buttonColor={theme.colors.primary}
-              textColor={theme.colors.onPrimary}
-              style={{ flex: 1 }}
-              contentStyle={{ paddingVertical: 4 }}
-            >
-              Start Match
-            </Button>
-            <Button
-              mode="outlined"
-              onPress={handleCancelMatch}
-              textColor={theme.colors.error}
-              style={{ flex: 1, borderColor: theme.colors.error }}
-              contentStyle={{ paddingVertical: 4 }}
-            >
-              Cancel Match
-            </Button>
-          </View>
-        )}
-
-        {isCompleted && (
-          <View
-            style={[styles.finalBadge, { backgroundColor: theme.colors.secondary + '22' }]}
-          >
-            <MaterialCommunityIcons
-              name="flag-checkered"
-              size={14}
-              color={theme.colors.secondary}
-            />
-            <Text style={[styles.finalText, { color: theme.colors.secondary }]}>
-              Final Result
-            </Text>
-          </View>
         )}
       </Surface>
 
-      {/* Rosters */}
-      <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>Rosters</Text>
-      <View style={styles.rostersRow}>
-        <RosterCard
-          title={match.homeTeam}
-          players={homeRoster}
-          theme={theme}
-          side="home"
-        />
-        <RosterCard
-          title={match.awayTeam}
-          players={awayRoster}
-          theme={theme}
-          side="away"
-        />
-      </View>
-
-      {/* Stats log — only shown if there are recorded stats */}
-      {stats.length > 0 && (
-        <>
-          <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>
-            Stats Log ({stats.length})
-          </Text>
-
-          {/* Home stats */}
-          {homeStats.length > 0 && (
-            <>
-              <Text style={[styles.subSectionLabel, { color: theme.colors.onSurfaceVariant }]}>
-                {match.homeTeam}
-              </Text>
-              {homeStats.map((stat) => (
-                <StatRow key={stat.id} stat={stat} theme={theme} />
-              ))}
-            </>
-          )}
-
-          {/* Away stats */}
-          {awayStats.length > 0 && (
-            <>
-              <Text style={[styles.subSectionLabel, { color: theme.colors.onSurfaceVariant }]}>
-                {match.awayTeam}
-              </Text>
-              {awayStats.map((stat) => (
-                <StatRow key={stat.id} stat={stat} theme={theme} />
-              ))}
-            </>
-          )}
-        </>
-      )}
-
-      {/* No stats yet */}
-      {stats.length === 0 && (isLive || isUpcoming) && (
-        <View style={styles.emptyStats}>
-          <MaterialCommunityIcons
-            name="clipboard-text-outline"
-            size={32}
-            color={theme.colors.onSurfaceVariant}
-          />
-          <Text style={[styles.emptyStatsText, { color: theme.colors.onSurfaceVariant }]}>
-            No stats recorded yet
+      {/* Stats timeline */}
+      <Text style={[styles.sectionHeading, { color: theme.colors.onSurface }]}>Match Stats ({stats.length})</Text>
+      {stats.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>
+            {isUpcoming ? 'Stats recorded during live match.' : 'No stats recorded yet.'}
           </Text>
         </View>
+      ) : (
+        stats.map((s) => (
+          <View key={s.id} style={[styles.statRow, CARD_SHADOW]}>
+            <View style={[styles.statIconWrap, { backgroundColor: theme.colors.primaryContainer }]}>
+              <MaterialCommunityIcons name="flag-outline" size={16} color={theme.colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.statPlayer, { color: theme.colors.onSurface }]}>{s.player_name}</Text>
+              <Text style={styles.statType}>{s.stat_type}</Text>
+            </View>
+            <Text style={styles.statTime}>
+              {s.recorded_at ? new Date(s.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+            </Text>
+          </View>
+        ))
+      )}
+
+      {/* Cancel action */}
+      {!isCanceled && (isUpcoming || isLive) && (
+        <>
+          <Divider style={{ marginVertical: SPACING.md }} />
+          <Button
+            mode="outlined"
+            onPress={handleCancelMatch}
+            loading={cancelling}
+            disabled={cancelling}
+            textColor={theme.colors.error}
+            style={[styles.cancelBtn, { borderColor: theme.colors.error }]}
+            icon="cancel"
+          >
+            Request Match Cancellation
+          </Button>
+        </>
       )}
     </ScrollView>
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────
-
-function RosterCard({ title, players, theme, side }) {
-  const accentColor = side === 'home' ? theme.colors.primary : theme.colors.secondary;
-  return (
-    <Surface
-      style={[
-        styles.rosterCard,
-        { backgroundColor: theme.colors.surface, borderColor: accentColor + '33' },
-      ]}
-      elevation={0}
-    >
-      <Text style={[styles.rosterTitle, { color: accentColor }]} numberOfLines={1}>
-        {title}
-      </Text>
-      <Divider style={{ backgroundColor: theme.colors.outline, marginBottom: SPACING.xs }} />
-      {players.length === 0 ? (
-        <Text style={[styles.rosterEmpty, { color: theme.colors.onSurfaceVariant }]}>
-          No players
-        </Text>
-      ) : (
-        players.map((p) => (
-          <View key={p.id} style={styles.rosterRow}>
-            <Text style={[styles.rosterJersey, { color: accentColor }]}>#{p.jerseyNumber}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.rosterName, { color: theme.colors.onSurface }]} numberOfLines={1}>
-                {p.name}
-              </Text>
-              <Text style={[styles.rosterPos, { color: theme.colors.onSurfaceVariant }]}>
-                {p.positions.join('/')}
-              </Text>
-            </View>
-          </View>
-        ))
-      )}
-    </Surface>
-  );
-}
-
-function StatRow({ stat, theme }) {
-  return (
-    <Surface
-      style={[styles.statRow, { backgroundColor: theme.colors.surfaceVariant }]}
-      elevation={0}
-    >
-      <View style={[styles.statTypePill, { backgroundColor: theme.colors.primary + '22' }]}>
-        <Text style={[styles.statTypeText, { color: theme.colors.primary }]}>
-          {stat.statType}
-        </Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.statPlayer, { color: theme.colors.onSurface }]}>
-          {stat.playerName}
-        </Text>
-        <Text style={[styles.statTime, { color: theme.colors.onSurfaceVariant }]}>
-          {new Date(stat.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      </View>
-    </Surface>
-  );
-}
-
-// ── Styles ────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  container: {
-    padding: SPACING.md,
-    gap: SPACING.sm,
-    paddingBottom: SPACING.xl * 2,
-  },
-  backBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    alignSelf: 'flex-start',
-    marginBottom: SPACING.xs,
-  },
-  backText: { fontSize: 14, fontWeight: '700' },
-
-  pendingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    borderRadius: 10,
-    borderWidth: 1,
-    padding: SPACING.sm,
-  },
-  pendingBannerText: { fontSize: 13, fontWeight: '600', flex: 1 },
-
-  // Score card
-  scoreCard: {
-    borderRadius: 16,
-    padding: SPACING.lg,
-    borderWidth: 1,
-    borderColor: '#1C2437',
-    gap: SPACING.xs,
-  },
-  tournamentName: {
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  matchMeta: { fontSize: 12, textAlign: 'center' },
-  scoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: SPACING.sm,
-  },
-  teamBlock: { flex: 1 },
-  teamName: { fontSize: 14, fontWeight: '700' },
-  scoreNum: { fontSize: 52, fontWeight: '900', lineHeight: 56 },
-  teamLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  centreBlock: { alignItems: 'center', gap: SPACING.xs, paddingHorizontal: SPACING.sm },
-  vsDash: { fontSize: 22, fontWeight: '300' },
-  vsText: { fontSize: 18, fontWeight: '700' },
-  ctaBtn: { borderRadius: 10 },
-  ctaRow: { flexDirection: 'row', gap: SPACING.sm },
-  finalBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
-    borderRadius: 8,
-    paddingVertical: SPACING.xs,
-  },
-  finalText: { fontSize: 13, fontWeight: '700' },
-
-  // Section titles
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginTop: SPACING.sm,
-  },
-  subSectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: SPACING.xs,
-  },
-
-  // Rosters
-  rostersRow: { flexDirection: 'row', gap: SPACING.sm },
-  rosterCard: {
-    flex: 1,
-    borderRadius: 12,
-    padding: SPACING.sm,
-    borderWidth: 1,
-    gap: SPACING.xs,
-  },
-  rosterTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: SPACING.xs,
-  },
-  rosterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    paddingVertical: 3,
-  },
-  rosterJersey: { fontSize: 12, fontWeight: '800', width: 28 },
-  rosterName: { fontSize: 12, fontWeight: '600' },
-  rosterPos: { fontSize: 10, marginTop: 1 },
-  rosterEmpty: { fontSize: 12, fontStyle: 'italic' },
-
-  // Stats
-  statRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 10,
-    padding: SPACING.sm,
-    gap: SPACING.sm,
-    borderWidth: 1,
-    borderColor: '#2A3348',
-    marginBottom: SPACING.xs,
-  },
-  statTypePill: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: 8,
-    minWidth: 72,
-    alignItems: 'center',
-  },
-  statTypeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
+  container: { padding: SPACING.md, paddingBottom: 60 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  heroScoreCard: { backgroundColor: '#1E2538', borderRadius: 16, padding: SPACING.md, alignItems: 'center', marginBottom: SPACING.md },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: 4 },
+  liveIndicator: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E53935' },
+  liveLabel: { fontSize: 10, fontWeight: '800', color: '#E53935', letterSpacing: 1 },
+  metaSubtext: { color: '#6A7893', fontSize: 12, marginBottom: SPACING.sm },
+  scoreboardMain: { flexDirection: 'row', alignItems: 'center', width: '100%', marginVertical: SPACING.md },
+  teamColumn: { flex: 1, gap: 4 },
+  teamLabelName: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  pointsDisplay: { color: '#FFFFFF', fontSize: 40, fontWeight: '900' },
+  vsDivider: { color: '#4F5E7B', fontSize: 14, fontWeight: '700', marginHorizontal: SPACING.md },
+  actionBtn: { borderRadius: 8, width: '100%', marginTop: SPACING.sm },
+  sectionHeading: { fontSize: 14, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: SPACING.sm, marginTop: SPACING.sm },
+  emptyContainer: { padding: SPACING.lg, alignItems: 'center' },
+  emptyText: { color: '#999', fontSize: 13, fontStyle: 'italic' },
+  statRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 12, padding: SPACING.sm, gap: SPACING.sm, marginBottom: SPACING.xs },
+  statIconWrap: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   statPlayer: { fontSize: 13, fontWeight: '700' },
-  statTime: { fontSize: 11, marginTop: 1 },
-
-  emptyStats: {
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.xl,
-  },
-  emptyStatsText: { fontSize: 14, fontStyle: 'italic' },
+  statType: { fontSize: 11, color: '#AAAAAA', marginTop: 2 },
+  statTime: { fontSize: 11, color: '#AAAAAA' },
+  cancelBtn: { borderRadius: 12 },
 });

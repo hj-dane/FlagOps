@@ -1,370 +1,419 @@
 // app/(organizer)/matches/live/[id].jsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  View, ScrollView, StyleSheet, TouchableOpacity, Alert, Modal,
-} from 'react-native';
-import { Text, useTheme, Button, Divider } from 'react-native-paper';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { Text, useTheme, Button, Surface, ActivityIndicator } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAtom } from 'jotai';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { MATCHES, MATCH_STATS, PLAYERS } from '../../../../data/mockData';
-import { SPACING, CARD_SHADOW } from '../../../../theme';
+import { matchesAtom } from '../../../../store/globalStore';
+import { supabase } from '../../../../utils/supabase';
+import { SPACING, APP_THEME } from '../../../../theme';
 
 const STAT_TYPES = ['TD', 'INT', 'Flag Pulled', 'Sack', 'Completion', 'Rush'];
+const MATCH_DURATION_SECONDS = 50 * 60; // 50 minutes
 
 export default function LiveMatchScreen() {
   const { id } = useLocalSearchParams();
   const theme = useTheme();
   const router = useRouter();
 
-  const match = MATCHES.find((m) => m.id === id) ?? MATCHES[0];
-  const allPlayers = PLAYERS.filter((p) => p.teamId === match.homeTeamId || p.teamId === match.awayTeamId);
+  const [matches, setMatches] = useAtom(matchesAtom);
+  const [match, setMatch] = useState(() => matches.find((m) => m.id === id) || null);
+  const [loadingMatch, setLoadingMatch] = useState(!match);
 
-  const [homeScore, setHomeScore] = useState(match.homeScore ?? 0);
-  const [awayScore, setAwayScore] = useState(match.awayScore ?? 0);
-  const [seconds, setSeconds] = useState(0);
+  // Timer: countdown from 50:00
+  const [seconds, setSeconds] = useState(MATCH_DURATION_SECONDS);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [matchPhase, setMatchPhase] = useState('Not Started');
-  const intervalRef = useRef(null);
-  const [isOnline] = useState(true);
-  const [offlineQueue, setOfflineQueue] = useState([]);
-  const [statModalVisible, setStatModalVisible] = useState(false);
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [selectedStat, setSelectedStat] = useState(STAT_TYPES[0]);
-  const [patModalVisible, setPatModalVisible] = useState(false);
-  const [patTeam, setPatTeam] = useState('home');
-  const [statsLog, setStatsLog] = useState(MATCH_STATS[id] ?? []);
+  const timerRef = useRef(null);
 
+  // Stat recording
+  const [roster, setRoster] = useState([]);
+  const [loadingRoster, setLoadingRoster] = useState(false);
+  const [selectedPlayerId, setSelectedPlayerId] = useState(null);
+  const [selectedStat, setSelectedStat] = useState(STAT_TYPES[0]);
+  const [recordingStats, setRecordingStats] = useState(false);
+
+  // ── Fetch match and set status to 'live' on mount ──
+  useEffect(() => {
+    const initMatch = async () => {
+      setLoadingMatch(true);
+      try {
+        // Always fetch fresh from DB
+        const { data, error } = await supabase
+          .from('matches')
+          .select('id, home_team_id, away_team_id, home_team_name, away_team_name, home_score, away_score, status, location, date_time')
+          .eq('id', id)
+          .single();
+        if (error) throw error;
+
+        // Set status to live if not already completed/canceled
+        if (data.status !== 'completed' && data.status !== 'canceled') {
+          await supabase
+            .from('matches')
+            .update({ status: 'live' })
+            .eq('id', id);
+          data.status = 'live';
+        }
+
+        setMatch(data);
+        setMatches((prev) => {
+          const exists = prev.find((m) => m.id === id);
+          return exists ? prev.map((m) => m.id === id ? data : m) : [...prev, data];
+        });
+      } catch (err) {
+        console.error('initMatch error:', err.message);
+      } finally {
+        setLoadingMatch(false);
+      }
+    };
+    initMatch();
+  }, [id]);
+
+  // ── Fetch both team rosters once match is loaded ──
+  useEffect(() => {
+    if (!match) return;
+
+    const fetchRosters = async () => {
+      setLoadingRoster(true);
+      try {
+        // Fetch the match fresh from DB to ensure we have team IDs
+        const { data: freshMatch, error: matchErr } = await supabase
+          .from('matches')
+          .select('id, home_team_id, away_team_id, home_team_name, away_team_name')
+          .eq('id', id)
+          .single();
+
+        if (matchErr || !freshMatch) {
+          console.error('Could not re-fetch match:', matchErr);
+          return;
+        }
+
+        const teamIds = [freshMatch.home_team_id, freshMatch.away_team_id].filter(Boolean);
+
+        if (teamIds.length === 0) {
+          console.warn('Match has no team IDs even after re-fetch');
+          setLoadingRoster(false);
+          return;
+        }
+
+        // Fetch all players in those teams — no status filter
+        const { data, error } = await supabase
+          .from('players')
+          .select('id, name, jersey_number, position, team_id, status')
+          .in('team_id', teamIds);
+
+        if (error) throw error;
+        setRoster(data || []);
+      } catch (err) {
+        console.error('fetchRosters error:', err.message);
+      } finally {
+        setLoadingRoster(false);
+      }
+    };
+
+    fetchRosters();
+  }, [match?.id]);
+
+  // ── Timer: countdown, auto-end at 0 ──
   useEffect(() => {
     if (timerRunning) {
-      intervalRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+      timerRef.current = setInterval(() => {
+        setSeconds((s) => {
+          if (s <= 1) {
+            clearInterval(timerRef.current);
+            setTimerRunning(false);
+            handleTimeUp();
+            return 0;
+          }
+          return s - 1;
+        });
+      }, 1000);
     } else {
-      clearInterval(intervalRef.current);
+      clearInterval(timerRef.current);
     }
-    return () => clearInterval(intervalRef.current);
+    return () => clearInterval(timerRef.current);
   }, [timerRunning]);
 
-  const formatTime = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  const handleTimeUp = useCallback(async () => {
+    Alert.alert(
+      "Time's Up!",
+      'The 50-minute match time has ended. End the match now?',
+      [
+        { text: 'Not yet', style: 'cancel' },
+        {
+          text: 'End Match', onPress: async () => {
+            await supabase.from('matches').update({ status: 'completed' }).eq('id', id);
+            setMatches((prev) => prev.map((m) => m.id === id ? { ...m, status: 'completed' } : m));
+            router.back();
+          },
+        },
+      ]
+    );
+  }, [id]);
 
-  const queueAction = useCallback((action) => {
-    if (!isOnline) setOfflineQueue((q) => [...q, { ...action, timestamp: new Date().toISOString() }]);
-  }, [isOnline]);
-
-  const addTD = (team) => {
-    if (team === 'home') setHomeScore((s) => s + 6);
-    else setAwayScore((s) => s + 6);
-    queueAction({ type: 'TD', team, points: 6 });
+  const formatTime = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   };
 
-  const addPAT = (team, pts) => {
-    if (team === 'home') setHomeScore((s) => s + pts);
-    else setAwayScore((s) => s + pts);
-    queueAction({ type: 'PAT', team, points: pts });
-    setPatModalVisible(false);
+  // ── Score update ──
+  const updateScore = useCallback(async (homeScore, awayScore) => {
+    const { error } = await supabase
+      .from('matches')
+      .update({ home_score: homeScore, away_score: awayScore })
+      .eq('id', id);
+
+    if (!error) {
+      setMatch((prev) => prev ? { ...prev, home_score: homeScore, away_score: awayScore } : prev);
+      setMatches((prev) =>
+        prev.map((m) => m.id === id ? { ...m, home_score: homeScore, away_score: awayScore } : m)
+      );
+    } else {
+      Alert.alert('Error', 'Failed to update score.');
+    }
+  }, [id]);
+
+  const addTD = (side) => {
+    const home = match?.home_score ?? 0;
+    const away = match?.away_score ?? 0;
+    if (side === 'home') updateScore(home + 6, away);
+    else updateScore(home, away + 6);
   };
 
-  const recordStat = () => {
-    if (!selectedPlayer) { Alert.alert('Select a player first'); return; }
-    const stat = {
-      id: `stat-${Date.now()}`,
-      matchId: id,
-      playerId: selectedPlayer.id,
-      playerName: selectedPlayer.name,
-      team: selectedPlayer.teamName,
-      statType: selectedStat,
-      value: 1,
-      timestamp: new Date().toISOString(),
-    };
-    setStatsLog((prev) => [stat, ...prev]);
-    setStatModalVisible(false);
-    setSelectedPlayer(null);
-    setSelectedStat(STAT_TYPES[0]);
+  const addPAT = (side, pts) => {
+    const home = match?.home_score ?? 0;
+    const away = match?.away_score ?? 0;
+    if (side === 'home') updateScore(home + pts, away);
+    else updateScore(home, away + pts);
   };
 
-  const handleEndMatch = () => {
-    Alert.alert('End Match', `Final: ${match.homeTeam} ${homeScore} – ${awayScore} ${match.awayTeam}`, [
+  // ── Record stat ──
+  const recordStat = async () => {
+    if (!selectedPlayerId) { Alert.alert('Select a player first'); return; }
+    setRecordingStats(true);
+    try {
+      const { error } = await supabase
+        .from('match_stats')
+        .insert({
+          match_id: id,
+          player_id: selectedPlayerId,
+          stat_type: selectedStat,
+          value: 1,
+        });
+      if (error) throw error;
+      Alert.alert('Recorded', `${selectedStat} recorded.`);
+    } catch (err) {
+      Alert.alert('Error', 'Could not record stat.');
+    } finally {
+      setRecordingStats(false);
+    }
+  };
+
+  // ── End match manually ──
+  const endMatch = () => {
+    Alert.alert('End Match', 'Mark this match as completed? This will lock the scoreboard.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'End Match', style: 'destructive', onPress: () => { setTimerRunning(false); setMatchPhase('Full Time'); } },
+      {
+        text: 'End Match', style: 'destructive', onPress: async () => {
+          const { error } = await supabase
+            .from('matches')
+            .update({ status: 'completed' })
+            .eq('id', id);
+          if (!error) {
+            setTimerRunning(false);
+            router.back();
+          } else {
+            Alert.alert('Error', 'Could not end match.');
+          }
+        },
+      },
     ]);
   };
 
-  const isCompleted = matchPhase === 'Full Time';
+  if (loadingMatch || !match) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  const homeScore = match.home_score ?? 0;
+  const awayScore = match.away_score ?? 0;
+  const timerColor = seconds < 120 ? '#E53935' : APP_THEME.colors.primary; // red in last 2 mins
 
   return (
-    <ScrollView style={{ backgroundColor: theme.colors.background }} contentContainerStyle={styles.container}>
-      {/* Offline banner */}
-      {!isOnline && (
-        <View style={styles.offlineBanner}>
-          <MaterialCommunityIcons name="wifi-off" size={14} color="#E65100" />
-          <Text style={styles.offlineText}>Offline — {offlineQueue.length} queued</Text>
-        </View>
-      )}
+    <ScrollView
+      style={{ backgroundColor: theme.colors.background }}
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <MaterialCommunityIcons name="arrow-left" size={22} color={theme.colors.onSurface} />
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: theme.colors.onSurface }]}>Live Match</Text>
+        <View style={[styles.liveDot, { backgroundColor: APP_THEME.colors.primary }]} />
+      </View>
 
-      {/* Back */}
-      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-        <MaterialCommunityIcons name="arrow-left" size={20} color={theme.colors.primary} />
-        <Text style={[styles.backText, { color: theme.colors.primary }]}>Matches</Text>
-      </TouchableOpacity>
-
-      {/* Scoreboard — dark card like reference */}
-      <View style={styles.scoreCard}>
-        <Text style={styles.scoreCardMeta}>{match.tournamentName} · {match.location}</Text>
-
+      {/* Scoreboard */}
+      <Surface style={styles.scoreBoard} elevation={0}>
         <View style={styles.scoreRow}>
-          <View style={styles.teamBlock}>
-            <Text style={styles.scoreTeamName} numberOfLines={2}>{match.homeTeam}</Text>
-            <Text style={[styles.scoreNum, { color: theme.colors.primary }]}>{homeScore}</Text>
-            <Text style={styles.scoreLabel}>HOME</Text>
+          <View style={styles.teamCol}>
+            <Text style={styles.teamName} numberOfLines={1}>{match.home_team_name}</Text>
+            <Text style={styles.score}>{homeScore}</Text>
           </View>
-          <View style={styles.scoreCentre}>
-            <Text style={styles.scoreTimer}>{isCompleted ? 'FINAL' : formatTime(seconds)}</Text>
-            <Text style={styles.scorePhase}>{matchPhase}</Text>
+          <View style={styles.vsCol}>
+            <Text style={styles.vsText}>VS</Text>
+            <Text style={[styles.timerText, { color: timerColor }]}>{formatTime(seconds)}</Text>
           </View>
-          <View style={[styles.teamBlock, { alignItems: 'flex-end' }]}>
-            <Text style={[styles.scoreTeamName, { textAlign: 'right' }]} numberOfLines={2}>{match.awayTeam}</Text>
-            <Text style={[styles.scoreNum, { color: theme.colors.primary }]}>{awayScore}</Text>
-            <Text style={styles.scoreLabel}>AWAY</Text>
+          <View style={[styles.teamCol, { alignItems: 'flex-end' }]}>
+            <Text style={[styles.teamName, { textAlign: 'right' }]} numberOfLines={1}>{match.away_team_name}</Text>
+            <Text style={styles.score}>{awayScore}</Text>
           </View>
         </View>
 
         {/* Timer controls */}
-        {!isCompleted && (
-          <View style={styles.timerControls}>
-            {matchPhase === 'Not Started' && (
-              <TouchableOpacity
-                style={[styles.kickoffBtn, { backgroundColor: theme.colors.primary }]}
-                onPress={() => { setTimerRunning(true); setMatchPhase('1st Half'); }}
-              >
-                <MaterialCommunityIcons name="play" size={16} color="#FFFFFF" />
-                <Text style={styles.kickoffBtnText}>Kickoff</Text>
-              </TouchableOpacity>
-            )}
-            {(matchPhase === '1st Half' || matchPhase === '2nd Half') && (
-              <View style={styles.timerBtnRow}>
-                <TouchableOpacity
-                  style={[styles.timerBtn, { backgroundColor: timerRunning ? '#333333' : theme.colors.primary }]}
-                  onPress={() => setTimerRunning((r) => !r)}
-                >
-                  <MaterialCommunityIcons name={timerRunning ? 'pause' : 'play'} size={16} color="#FFFFFF" />
-                  <Text style={styles.timerBtnText}>{timerRunning ? 'Pause' : 'Resume'}</Text>
-                </TouchableOpacity>
-                {matchPhase === '1st Half' && (
-                  <TouchableOpacity
-                    style={[styles.timerBtn, { backgroundColor: '#333333' }]}
-                    onPress={() => { setTimerRunning(false); setMatchPhase('Halftime'); setSeconds(0); }}
-                  >
-                    <Text style={styles.timerBtnText}>End Half</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-            {matchPhase === 'Halftime' && (
-              <TouchableOpacity
-                style={[styles.kickoffBtn, { backgroundColor: theme.colors.primary }]}
-                onPress={() => { setTimerRunning(true); setMatchPhase('2nd Half'); }}
-              >
-                <Text style={styles.kickoffBtnText}>Start 2nd Half</Text>
-              </TouchableOpacity>
-            )}
+        <View style={styles.timerControls}>
+          <Button
+            mode={timerRunning ? 'outlined' : 'contained'}
+            onPress={() => setTimerRunning((r) => !r)}
+            buttonColor={timerRunning ? undefined : theme.colors.primary}
+            textColor={timerRunning ? theme.colors.primary : '#FFF'}
+            icon={timerRunning ? 'pause' : 'play'}
+            compact
+          >
+            {timerRunning ? 'Pause' : 'Start'}
+          </Button>
+          <Button
+            mode="outlined"
+            onPress={() => { setSeconds(MATCH_DURATION_SECONDS); setTimerRunning(false); }}
+            icon="restart"
+            textColor={theme.colors.primary}
+            compact
+          >
+            Reset
+          </Button>
+        </View>
+      </Surface>
+
+      {/* Scoring actions */}
+      <Text style={styles.sectionLabel}>SCORING</Text>
+      <View style={styles.scoringGrid}>
+        <View style={styles.scoringCol}>
+          <Text style={styles.teamNameSmall} numberOfLines={1}>{match.home_team_name}</Text>
+          <Button mode="contained" buttonColor={theme.colors.primary} onPress={() => addTD('home')} style={styles.scoreBtn}>+TD (+6)</Button>
+          <View style={styles.patRow}>
+            <Button mode="outlined" onPress={() => addPAT('home', 1)} style={[styles.patBtn, { flex: 1 }]} compact>PAT +1</Button>
+            <Button mode="outlined" onPress={() => addPAT('home', 2)} style={[styles.patBtn, { flex: 1 }]} compact>PAT +2</Button>
           </View>
-        )}
+        </View>
+        <View style={styles.scoringDivider} />
+        <View style={styles.scoringCol}>
+          <Text style={styles.teamNameSmall} numberOfLines={1}>{match.away_team_name}</Text>
+          <Button mode="contained" buttonColor={theme.colors.primary} onPress={() => addTD('away')} style={styles.scoreBtn}>+TD (+6)</Button>
+          <View style={styles.patRow}>
+            <Button mode="outlined" onPress={() => addPAT('away', 1)} style={[styles.patBtn, { flex: 1 }]} compact>PAT +1</Button>
+            <Button mode="outlined" onPress={() => addPAT('away', 2)} style={[styles.patBtn, { flex: 1 }]} compact>PAT +2</Button>
+          </View>
+        </View>
       </View>
 
-      {/* Scoring buttons */}
-      {!isCompleted && (
-        <View style={[styles.section, CARD_SHADOW]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Scoring</Text>
-          <View style={styles.scoreGrid}>
-            {[
-              { label: `+TD  ${match.homeTeam}`, onPress: () => addTD('home'), primary: true },
-              { label: `+TD  ${match.awayTeam}`, onPress: () => addTD('away'), primary: true },
-              { label: `+PAT  ${match.homeTeam}`, onPress: () => { setPatTeam('home'); setPatModalVisible(true); }, primary: false },
-              { label: `+PAT  ${match.awayTeam}`, onPress: () => { setPatTeam('away'); setPatModalVisible(true); }, primary: false },
-            ].map((btn, i) => (
+      {/* Stat recording */}
+      <Text style={styles.sectionLabel}>RECORD STAT</Text>
+      <Surface style={styles.statPanel} elevation={0}>
+        <Text style={styles.statSubLabel}>Select Player</Text>
+        {loadingRoster ? (
+          <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 8 }} />
+        ) : roster.length === 0 ? (
+          <Text style={styles.emptyRosterText}>No players found for these teams</Text>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
+            {roster.map((p) => (
               <TouchableOpacity
-                key={i}
-                onPress={btn.onPress}
-                style={[
-                  styles.scoreBtn,
-                  { backgroundColor: btn.primary ? theme.colors.primary : '#F5F5F5' },
-                ]}
+                key={p.id}
+                onPress={() => setSelectedPlayerId(p.id)}
+                style={[styles.pill, { backgroundColor: selectedPlayerId === p.id ? theme.colors.primary : '#F0F0F0' }]}
               >
-                <Text style={[styles.scoreBtnText, { color: btn.primary ? '#FFFFFF' : '#1A1A1A' }]} numberOfLines={2}>
-                  {btn.label}
+                <Text style={[styles.pillText, { color: selectedPlayerId === p.id ? '#FFF' : '#888' }]}>
+                  #{p.jersey_number ?? '?'} {p.name}
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
-        </View>
-      )}
+          </ScrollView>
+        )}
 
-      {/* Record stat */}
-      {!isCompleted && (
+        <Text style={[styles.statSubLabel, { marginTop: SPACING.sm }]}>Stat Type</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
+          {STAT_TYPES.map((s) => (
+            <TouchableOpacity
+              key={s}
+              onPress={() => setSelectedStat(s)}
+              style={[styles.pill, { backgroundColor: selectedStat === s ? theme.colors.primary : '#F0F0F0' }]}
+            >
+              <Text style={[styles.pillText, { color: selectedStat === s ? '#FFF' : '#888' }]}>{s}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
         <Button
-          mode="outlined"
-          icon="clipboard-plus"
-          onPress={() => setStatModalVisible(true)}
-          textColor={theme.colors.primary}
-          style={[styles.statBtn, { borderColor: theme.colors.primary }]}
-          contentStyle={{ paddingVertical: 4 }}
+          mode="contained"
+          onPress={recordStat}
+          loading={recordingStats}
+          disabled={recordingStats || !selectedPlayerId}
+          buttonColor={theme.colors.primary}
+          style={{ marginTop: SPACING.sm, borderRadius: 8 }}
+          icon="check"
         >
-          Record Player Stat
+          Confirm Stat
         </Button>
-      )}
+      </Surface>
 
-      {/* Stats log */}
-      <Text style={[styles.sectionTitle, { color: theme.colors.onSurface, marginTop: SPACING.sm }]}>
-        Stats Log ({statsLog.length})
-      </Text>
-      {statsLog.length === 0 ? (
-        <Text style={styles.emptyText}>No stats recorded yet</Text>
-      ) : (
-        statsLog.map((stat) => (
-          <View key={stat.id} style={[styles.statRow, CARD_SHADOW]}>
-            <View style={[styles.statTypePill, { backgroundColor: theme.colors.primary }]}>
-              <Text style={styles.statTypeText}>{stat.statType}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.statPlayer, { color: theme.colors.onSurface }]}>{stat.playerName}</Text>
-              <Text style={styles.statTeam}>{stat.team} · {new Date(stat.timestamp).toLocaleTimeString()}</Text>
-            </View>
-          </View>
-        ))
-      )}
-
-      {/* End / Cancel */}
-      {!isCompleted && (
-        <View style={styles.bottomActions}>
-          <Button mode="contained" onPress={handleEndMatch} buttonColor={theme.colors.primary} textColor="#FFFFFF" style={{ flex: 1 }} icon="flag-checkered" contentStyle={{ paddingVertical: 4 }}>
-            End Match
-          </Button>
-          <Button mode="outlined" onPress={() => Alert.alert('Cancel Match', 'Submit request to admin?', [{ text: 'Cancel' }, { text: 'Submit', onPress: () => Alert.alert('Submitted') }])} textColor={theme.colors.error} style={{ flex: 1, borderColor: theme.colors.error }} contentStyle={{ paddingVertical: 4 }}>
-            Cancel
-          </Button>
-        </View>
-      )}
-
-      {/* PAT Modal */}
-      <Modal visible={patModalVisible} transparent animationType="fade">
-        <View style={styles.centreModalOverlay}>
-          <View style={styles.centreModal}>
-            <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>
-              PAT — {patTeam === 'home' ? match.homeTeam : match.awayTeam}
-            </Text>
-            <View style={styles.patBtns}>
-              <Button mode="contained" onPress={() => addPAT(patTeam, 1)} buttonColor={theme.colors.primary} textColor="#FFFFFF" style={{ flex: 1 }}>+1 pt</Button>
-              <Button mode="outlined" onPress={() => addPAT(patTeam, 2)} textColor={theme.colors.primary} style={{ flex: 1, borderColor: theme.colors.primary }}>+2 pts</Button>
-            </View>
-            <Button mode="text" onPress={() => setPatModalVisible(false)} textColor="#AAAAAA">Cancel</Button>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Stat Recording Modal */}
-      <Modal visible={statModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>Record Stat</Text>
-            <Divider style={{ marginVertical: SPACING.md }} />
-
-            <Text style={styles.fieldLabel}>Stat Type</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: SPACING.xs, marginBottom: SPACING.md }}>
-              {STAT_TYPES.map((s) => (
-                <TouchableOpacity
-                  key={s}
-                  onPress={() => setSelectedStat(s)}
-                  style={[styles.pill, { backgroundColor: selectedStat === s ? theme.colors.primary : '#F0F0F0' }]}
-                >
-                  <Text style={[styles.pillText, { color: selectedStat === s ? '#FFFFFF' : '#888888' }]}>{s}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <Text style={styles.fieldLabel}>Player</Text>
-            <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
-              {allPlayers.map((player) => (
-                <TouchableOpacity
-                  key={player.id}
-                  onPress={() => setSelectedPlayer(player)}
-                  style={[
-                    styles.playerPickerRow,
-                    { backgroundColor: selectedPlayer?.id === player.id ? '#FFEBEE' : '#F5F5F5',
-                      borderColor: selectedPlayer?.id === player.id ? theme.colors.primary : 'transparent',
-                      borderWidth: selectedPlayer?.id === player.id ? 1 : 0 },
-                  ]}
-                >
-                  <View style={[styles.pickJerseyBadge, { backgroundColor: theme.colors.primary }]}>
-                    <Text style={styles.pickJerseyNum}>#{player.jerseyNumber}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.pickPlayerName, { color: theme.colors.onSurface }]}>{player.name}</Text>
-                    <Text style={styles.pickPlayerMeta}>{player.teamName} · {player.positions.join('/')}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <Button mode="contained" onPress={recordStat} buttonColor={theme.colors.primary} textColor="#FFFFFF" style={{ marginTop: SPACING.md, borderRadius: 12 }} icon="check" contentStyle={{ paddingVertical: 4 }}>
-              Confirm Stat
-            </Button>
-            <Button mode="text" onPress={() => setStatModalVisible(false)} textColor="#AAAAAA" style={{ marginTop: 4 }}>Cancel</Button>
-          </View>
-        </View>
-      </Modal>
+      {/* End match */}
+      <Button
+        mode="outlined"
+        onPress={endMatch}
+        textColor={theme.colors.error}
+        style={[styles.endBtn, { borderColor: theme.colors.error }]}
+        icon="flag-checkered"
+      >
+        End Match
+      </Button>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: SPACING.md, gap: SPACING.sm, paddingBottom: SPACING.xl * 2 },
-  offlineBanner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, backgroundColor: '#FFF3E0', borderRadius: 10, padding: SPACING.sm },
-  offlineText: { fontSize: 13, fontWeight: '600', color: '#E65100' },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, alignSelf: 'flex-start', marginBottom: SPACING.xs },
-  backText: { fontSize: 14, fontWeight: '700' },
-  // Score card — dark surface
-  scoreCard: { backgroundColor: '#1A1A1A', borderRadius: 20, padding: SPACING.lg, gap: SPACING.md },
-  scoreCardMeta: { fontSize: 11, color: '#888888', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  teamBlock: { flex: 1 },
-  scoreTeamName: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
-  scoreNum: { fontSize: 56, fontWeight: '900', lineHeight: 62 },
-  scoreLabel: { fontSize: 9, color: '#666666', textTransform: 'uppercase', letterSpacing: 1, fontWeight: '700' },
-  scoreCentre: { alignItems: 'center', paddingHorizontal: SPACING.sm },
-  scoreTimer: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: 2 },
-  scorePhase: { fontSize: 10, color: '#888888', textTransform: 'uppercase', letterSpacing: 1 },
-  timerControls: { borderTopWidth: 1, borderTopColor: '#333333', paddingTop: SPACING.md },
-  kickoffBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.xs, borderRadius: 12, paddingVertical: 10 },
-  kickoffBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
-  timerBtnRow: { flexDirection: 'row', gap: SPACING.sm },
-  timerBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 12, paddingVertical: 10 },
-  timerBtnText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
-  // Scoring
-  section: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: SPACING.md, gap: SPACING.md },
-  sectionTitle: { fontSize: 15, fontWeight: '800' },
-  scoreGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
-  scoreBtn: { flex: 1, minWidth: '45%', borderRadius: 12, padding: SPACING.md, alignItems: 'center' },
-  scoreBtnText: { fontSize: 13, fontWeight: '800', textAlign: 'center' },
-  statBtn: { borderRadius: 12 },
-  // Stats log
-  statRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, padding: SPACING.sm, gap: SPACING.sm },
-  statTypePill: { paddingHorizontal: SPACING.sm, paddingVertical: 4, borderRadius: 8, minWidth: 72, alignItems: 'center' },
-  statTypeText: { fontSize: 11, fontWeight: '800', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: 0.5 },
-  statPlayer: { fontSize: 13, fontWeight: '700' },
-  statTeam: { fontSize: 11, color: '#AAAAAA', marginTop: 1 },
-  emptyText: { fontSize: 13, color: '#AAAAAA', fontStyle: 'italic' },
-  bottomActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
-  // Modals
-  centreModalOverlay: { flex: 1, backgroundColor: '#00000055', alignItems: 'center', justifyContent: 'center' },
-  centreModal: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: SPACING.lg, width: '80%', gap: SPACING.md },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000055' },
-  modalSheet: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.lg, maxHeight: '80%' },
-  modalTitle: { fontSize: 18, fontWeight: '800' },
-  fieldLabel: { fontSize: 11, fontWeight: '700', color: '#AAAAAA', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: SPACING.xs },
-  pill: { paddingHorizontal: SPACING.md, paddingVertical: 7, borderRadius: 20 },
-  pillText: { fontSize: 13, fontWeight: '700' },
-  playerPickerRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, padding: SPACING.sm, gap: SPACING.sm, marginBottom: SPACING.xs },
-  pickJerseyBadge: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  pickJerseyNum: { fontSize: 12, fontWeight: '900', color: '#FFFFFF' },
-  pickPlayerName: { fontSize: 13, fontWeight: '700' },
-  pickPlayerMeta: { fontSize: 11, color: '#AAAAAA', marginTop: 1 },
-  patBtns: { flexDirection: 'row', gap: SPACING.sm },
+  container: { padding: SPACING.md, paddingBottom: 60 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md },
+  backBtn: { marginRight: SPACING.sm },
+  title: { fontSize: 18, fontWeight: '800', flex: 1 },
+  liveDot: { width: 10, height: 10, borderRadius: 5 },
+  scoreBoard: { backgroundColor: '#1A1A1A', borderRadius: 20, padding: SPACING.lg, marginBottom: SPACING.md },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md },
+  teamCol: { flex: 1, alignItems: 'flex-start' },
+  vsCol: { alignItems: 'center', paddingHorizontal: SPACING.sm },
+  teamName: { color: '#AAAAAA', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  score: { color: '#FFFFFF', fontSize: 52, fontWeight: '900', marginTop: 4 },
+  vsText: { color: '#555', fontSize: 13, fontWeight: '700' },
+  timerText: { fontSize: 22, fontWeight: '900', marginTop: 4 },
+  timerControls: { flexDirection: 'row', gap: SPACING.sm, justifyContent: 'center' },
+  sectionLabel: { fontSize: 11, color: APP_THEME.colors.primary, letterSpacing: 1.5, fontWeight: '800', marginBottom: 10, marginTop: SPACING.md },
+  scoringGrid: { flexDirection: 'row', backgroundColor: '#FFF', borderRadius: 16, padding: SPACING.md, marginBottom: SPACING.sm, gap: SPACING.sm },
+  scoringCol: { flex: 1, gap: SPACING.xs },
+  scoringDivider: { width: 1, backgroundColor: '#EEEEEE' },
+  teamNameSmall: { fontSize: 12, fontWeight: '700', color: '#888', textAlign: 'center', marginBottom: 4 },
+  scoreBtn: { borderRadius: 8 },
+  patRow: { flexDirection: 'row', gap: 4 },
+  patBtn: { borderRadius: 8 },
+  statPanel: { backgroundColor: '#FFF', borderRadius: 16, padding: SPACING.md, marginBottom: SPACING.md },
+  statSubLabel: { fontSize: 11, fontWeight: '700', color: '#AAAAAA', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: SPACING.xs },
+  pillRow: { gap: 6, paddingBottom: 4 },
+  pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  pillText: { fontSize: 12, fontWeight: '700' },
+  emptyRosterText: { fontSize: 12, color: '#AAAAAA', fontStyle: 'italic', paddingVertical: 8 },
+  endBtn: { borderRadius: 12, marginTop: SPACING.sm },
 });

@@ -1,89 +1,199 @@
 // app/(organizer)/stats/index.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, FlatList, StyleSheet, TouchableOpacity, Alert,
   Modal, ScrollView, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { Text, useTheme, Searchbar, Button, TextInput, Divider } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text, useTheme, Searchbar, Button, TextInput, Divider, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAtomValue } from 'jotai';
+import { supabase } from '../../../utils/supabase';
+import { userProfileAtom } from '../../../store/globalStore';
 import StatusPill from '../../../components/StatusPill';
-import { PLAYERS, MATCH_STATS, MATCHES } from '../../../data/mockData';
 import { SPACING, CARD_SHADOW } from '../../../theme';
+import ScreenHeader from '../../../components/ScreenHeader';
 
 const STAT_TYPES = ['TD', 'INT', 'Flag Pulled', 'Sack', 'Completion', 'Rush'];
-const ALL_STATS = Object.values(MATCH_STATS).flat();
 
+// Stat entries older than 24h on a completed match are read-only
 function isStatReadOnly(stat) {
-  const match = MATCHES.find((m) => m.id === stat.matchId);
-  if (!match || match.status !== 'Completed') return false;
-  return new Date() - new Date(stat.timestamp) > 24 * 60 * 60 * 1000;
+  if (stat.match_status !== 'completed') return false;
+  return new Date() - new Date(stat.recorded_at) > 24 * 60 * 60 * 1000;
 }
 
 export default function PlayerStatsScreen() {
   const theme = useTheme();
+  const profile = useAtomValue(userProfileAtom);
+
   const [query, setQuery] = useState('');
+  const [players, setPlayers] = useState([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(true);
+
   const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [playerStats, setPlayerStats] = useState(ALL_STATS);
+  const [playerStats, setPlayerStats] = useState([]);
+  const [loadingStats, setLoadingStats] = useState(false);
+
   const [editStat, setEditStat] = useState(null);
   const [editStatType, setEditStatType] = useState('');
   const [editValue, setEditValue] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  const filteredPlayers = useMemo(() =>
-    PLAYERS.filter((p) =>
-      p.name.toLowerCase().includes(query.toLowerCase()) ||
-      String(p.jerseyNumber).includes(query)
-    ), [query]
-  );
+  // ── Fetch players for this org (two-step via team IDs) ──
+  useEffect(() => {
+    if (!profile?.organization_id) return;
+    const fetchPlayers = async () => {
+      setLoadingPlayers(true);
+      try {
+        const { data, error } = await supabase
+          .from('player_organizations')
+          .select('player_id, players(id, name, jersey_number, position, status, team_id, teams(name))')
+          .eq('organization_id', profile.organization_id);
 
-  const selectedPlayerStats = useMemo(() =>
-    !selectedPlayer ? [] : playerStats.filter((s) => s.playerId === selectedPlayer.id),
-    [selectedPlayer, playerStats]
-  );
+        if (error) throw error;
+        const playerList = (data || [])
+          .map((r) => r.players)
+          .filter(Boolean)
+          .sort((a, b) => a.name.localeCompare(b.name));
+        setPlayers(playerList);
+      } catch (err) {
+        console.error('Error fetching players for stats:', err);
+      } finally {
+        setLoadingPlayers(false);
+      }
+    };
+    fetchPlayers();
+  }, [profile]);
 
-  const openEdit = (stat) => { setEditStat(stat); setEditStatType(stat.statType); setEditValue(String(stat.value)); };
+  // ── Fetch stat log for selected player ──
+  const fetchStats = useCallback(async (playerId) => {
+    setLoadingStats(true);
+    try {
+      const { data, error } = await supabase
+        .from('match_stats')
+        .select('id, stat_type, value, recorded_at, match_id, matches(home_team_name, away_team_name, status)')
+        .eq('player_id', playerId)
+        .order('recorded_at', { ascending: false });
 
-  const saveEdit = () => {
-    setPlayerStats((prev) => prev.map((s) => s.id === editStat.id ? { ...s, statType: editStatType, value: Number(editValue) } : s));
-    setEditStat(null);
+      if (error) throw error;
+
+      const formatted = (data || []).map((s) => ({
+        ...s,
+        match_status: s.matches?.status || '',
+        matchLabel: s.matches ? `${s.matches.home_team_name} vs ${s.matches.away_team_name}` : s.match_id,
+      }));
+      setPlayerStats(formatted);
+    } catch (err) {
+      console.error('Error fetching match stats:', err);
+    } finally {
+      setLoadingStats(false);
+    }
+  }, []);
+
+  const handleSelectPlayer = (player) => {
+    setSelectedPlayer(player);
+    fetchStats(player.id);
   };
 
+  // ── Edit stat ──
+  const openEdit = (stat) => {
+    setEditStat(stat);
+    setEditStatType(stat.stat_type);
+    setEditValue(String(stat.value));
+  };
+
+  const saveEdit = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('match_stats')
+        .update({ stat_type: editStatType, value: Number(editValue) })
+        .eq('id', editStat.id);
+
+      if (error) throw error;
+
+      setPlayerStats((prev) =>
+        prev.map((s) => s.id === editStat.id ? { ...s, stat_type: editStatType, value: Number(editValue) } : s)
+      );
+      setEditStat(null);
+    } catch (err) {
+      Alert.alert('Error', 'Could not save stat edit.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Delete stat ──
   const deleteStat = (stat) => {
-    Alert.alert('Remove Entry', `Remove ${stat.statType} for ${stat.playerName}?`, [
+    Alert.alert('Remove Entry', `Remove this ${stat.stat_type} entry?`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => setPlayerStats((prev) => prev.filter((s) => s.id !== stat.id)) },
+      {
+        text: 'Remove', style: 'destructive', onPress: async () => {
+          try {
+            const { error } = await supabase
+              .from('match_stats')
+              .delete()
+              .eq('id', stat.id);
+
+            if (error) throw error;
+            setPlayerStats((prev) => prev.filter((s) => s.id !== stat.id));
+          } catch (err) {
+            Alert.alert('Error', 'Could not remove stat entry.');
+          }
+        }
+      },
     ]);
   };
 
+  const filteredPlayers = useMemo(() =>
+    players.filter((p) =>
+      p.name?.toLowerCase().includes(query.toLowerCase()) ||
+      String(p.jersey_number || '').includes(query)
+    ), [players, query]
+  );
+
+  // Aggregate stats from match_stats log for the selected player
+  const statSummary = {
+    tds: playerStats.filter((s) => s.stat_type?.toLowerCase() === 'td').reduce((acc, s) => acc + (s.value || 1), 0),
+    ints: playerStats.filter((s) => s.stat_type?.toLowerCase() === 'int').reduce((acc, s) => acc + (s.value || 1), 0),
+    flags_pulled: playerStats.filter((s) => s.stat_type?.toLowerCase() === 'flag pulled').reduce((acc, s) => acc + (s.value || 1), 0),
+    sacks: playerStats.filter((s) => s.stat_type?.toLowerCase() === 'sack').reduce((acc, s) => acc + (s.value || 1), 0),
+    matches_played: new Set(playerStats.map((s) => s.match_id)).size,
+  };
   const STAT_SUMMARY = [
     { key: 'tds', label: 'TDs' },
     { key: 'ints', label: 'INTs' },
-    { key: 'flagsPulled', label: 'FP' },
+    { key: 'flags_pulled', label: 'FP' },
     { key: 'sacks', label: 'Sacks' },
-    { key: 'matchesPlayed', label: 'GP' },
+    { key: 'matches_played', label: 'GP' },
   ];
 
-  const renderPlayerItem = ({ item }) => (
-    <TouchableOpacity onPress={() => setSelectedPlayer(item)} activeOpacity={0.7}>
-      <View style={[
-        styles.playerCard,
-        CARD_SHADOW,
-        selectedPlayer?.id === item.id && { borderWidth: 2, borderColor: theme.colors.primary },
-      ]}>
-        <View style={[styles.jerseyBadge, { backgroundColor: theme.colors.primary }]}>
-          <Text style={styles.jerseyNum}>#{item.jerseyNumber}</Text>
+  const renderPlayerItem = ({ item }) => {
+    const pillStatus = item.status
+      ? item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase()
+      : 'Active';
+    return (
+      <TouchableOpacity onPress={() => handleSelectPlayer(item)} activeOpacity={0.7}>
+        <View style={[
+          styles.playerCard, CARD_SHADOW,
+          selectedPlayer?.id === item.id && { borderWidth: 2, borderColor: theme.colors.primary },
+        ]}>
+          <View style={[styles.jerseyBadge, { backgroundColor: theme.colors.primary }]}>
+            <Text style={styles.jerseyNum}>#{item.jersey_number || '00'}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.playerName, { color: theme.colors.onSurface }]}>{item.name}</Text>
+            <Text style={styles.playerMeta}>{item.position || 'Unassigned'} · {item.teams?.name || 'No Team'}</Text>
+          </View>
+          <StatusPill status={pillStatus} />
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.playerName, { color: theme.colors.onSurface }]}>{item.name}</Text>
-          <Text style={styles.playerMeta}>{item.positions.join(' / ')} · {item.teamName}</Text>
-        </View>
-        <StatusPill status={item.status} />
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.screenTitle, { color: theme.colors.onSurface }]}>Player Stats</Text>
+      <ScreenHeader title="Player Stats" />
 
       <Searchbar
         placeholder="Search player name or jersey #…"
@@ -97,19 +207,25 @@ export default function PlayerStatsScreen() {
       />
 
       {!selectedPlayer ? (
-        <FlatList
-          data={filteredPlayers}
-          keyExtractor={(item) => item.id}
-          renderItem={renderPlayerItem}
-          ItemSeparatorComponent={() => <View style={{ height: SPACING.xs }} />}
-          contentContainerStyle={{ paddingBottom: SPACING.xl }}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <MaterialCommunityIcons name="account-search-outline" size={48} color="#CCCCCC" />
-              <Text style={styles.emptyText}>No players found</Text>
-            </View>
-          }
-        />
+        loadingPlayers ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredPlayers}
+            keyExtractor={(item) => item.id}
+            renderItem={renderPlayerItem}
+            ItemSeparatorComponent={() => <View style={{ height: SPACING.xs }} />}
+            contentContainerStyle={{ paddingBottom: SPACING.xl }}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <MaterialCommunityIcons name="account-search-outline" size={48} color="#CCCCCC" />
+                <Text style={styles.emptyText}>No players found</Text>
+              </View>
+            }
+          />
+        )
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: SPACING.xl * 2 }}>
           {/* Player header */}
@@ -119,51 +235,47 @@ export default function PlayerStatsScreen() {
               <Text style={[styles.backText, { color: theme.colors.primary }]}>All Players</Text>
             </TouchableOpacity>
             <Divider style={{ marginVertical: SPACING.sm }} />
-
             <View style={styles.playerHeaderRow}>
               <View style={[styles.jerseyCircle, { backgroundColor: theme.colors.primary }]}>
-                <Text style={styles.jerseyCircleNum}>#{selectedPlayer.jerseyNumber}</Text>
+                <Text style={styles.jerseyCircleNum}>#{selectedPlayer.jersey_number || '00'}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.selectedName, { color: theme.colors.onSurface }]}>{selectedPlayer.name}</Text>
-                <Text style={styles.selectedMeta}>{selectedPlayer.positions.join(' / ')} · {selectedPlayer.teamName}</Text>
+                <Text style={styles.selectedMeta}>{selectedPlayer.position || 'Unassigned'} · {selectedPlayer.teams?.name}</Text>
               </View>
-              <StatusPill status={selectedPlayer.status} />
+              <StatusPill status={selectedPlayer.status ? selectedPlayer.status.charAt(0).toUpperCase() + selectedPlayer.status.slice(1) : 'Active'} />
             </View>
 
-            {/* Career stat summary */}
             <View style={styles.summaryRow}>
               {STAT_SUMMARY.map(({ key, label }) => (
                 <View key={key} style={styles.summaryItem}>
-                  <Text style={[styles.summaryValue, { color: theme.colors.primary }]}>{selectedPlayer.stats[key]}</Text>
+                  <Text style={[styles.summaryValue, { color: theme.colors.primary }]}>{statSummary[key] || 0}</Text>
                   <Text style={styles.summaryLabel}>{label}</Text>
                 </View>
               ))}
             </View>
           </View>
 
-          {/* Stat log */}
           <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-            Match Stat Log ({selectedPlayerStats.length})
+            Match Stat Log ({playerStats.length})
           </Text>
 
-          {selectedPlayerStats.length === 0 ? (
+          {loadingStats ? (
+            <ActivityIndicator color={theme.colors.primary} style={{ marginTop: SPACING.md }} />
+          ) : playerStats.length === 0 ? (
             <Text style={styles.emptyText}>No recorded stats for this player</Text>
           ) : (
-            selectedPlayerStats.map((stat) => {
+            playerStats.map((stat) => {
               const readOnly = isStatReadOnly(stat);
-              const match = MATCHES.find((m) => m.id === stat.matchId);
               return (
                 <View key={stat.id} style={[styles.statRow, CARD_SHADOW]}>
                   <View style={[styles.statTypePill, { backgroundColor: theme.colors.primary }]}>
-                    <Text style={styles.statTypeText}>{stat.statType}</Text>
+                    <Text style={styles.statTypeText}>{stat.stat_type}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.statMatch, { color: theme.colors.onSurface }]}>
-                      {match ? `${match.homeTeam} vs ${match.awayTeam}` : stat.matchId}
-                    </Text>
+                    <Text style={[styles.statMatch, { color: theme.colors.onSurface }]}>{stat.matchLabel}</Text>
                     <Text style={styles.statTime}>
-                      {new Date(stat.timestamp).toLocaleString()}{readOnly ? ' · Read-only' : ''}
+                      {new Date(stat.recorded_at).toLocaleString()}{readOnly ? ' · Read-only' : ''}
                     </Text>
                   </View>
                   {!readOnly && (
@@ -214,7 +326,7 @@ export default function PlayerStatsScreen() {
                 style={styles.formInput}
               />
               <View style={styles.modalActions}>
-                <Button mode="contained" onPress={saveEdit} buttonColor={theme.colors.primary} textColor="#FFFFFF" style={{ flex: 1 }} contentStyle={{ paddingVertical: 4 }}>Save</Button>
+                <Button mode="contained" onPress={saveEdit} loading={saving} disabled={saving} buttonColor={theme.colors.primary} textColor="#FFFFFF" style={{ flex: 1 }} contentStyle={{ paddingVertical: 4 }}>Save</Button>
                 <Button mode="outlined" onPress={() => setEditStat(null)} style={{ flex: 1 }} textColor={theme.colors.onSurface} contentStyle={{ paddingVertical: 4 }}>Cancel</Button>
               </View>
             </View>
@@ -227,6 +339,7 @@ export default function PlayerStatsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.lg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   screenTitle: { fontSize: 26, fontWeight: '800', marginBottom: SPACING.md },
   searchbar: { backgroundColor: '#FFFFFF', borderRadius: 12, marginBottom: SPACING.md, borderWidth: 1, borderColor: '#EEEEEE' },
   playerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 14, padding: SPACING.md, gap: SPACING.md },
@@ -236,7 +349,6 @@ const styles = StyleSheet.create({
   playerMeta: { fontSize: 12, color: '#AAAAAA', marginTop: 2 },
   empty: { alignItems: 'center', gap: SPACING.sm, paddingTop: SPACING.xl * 2 },
   emptyText: { fontSize: 13, color: '#AAAAAA', fontStyle: 'italic' },
-  // Player detail
   playerHeader: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: SPACING.md, marginBottom: SPACING.md },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' },
   backText: { fontSize: 14, fontWeight: '700' },
@@ -257,7 +369,6 @@ const styles = StyleSheet.create({
   statTime: { fontSize: 11, color: '#AAAAAA', marginTop: 1 },
   statActions: { flexDirection: 'row', gap: SPACING.xs },
   actionBtn: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  // Modal
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000055' },
   modalSheet: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.lg },
   modalTitle: { fontSize: 18, fontWeight: '800' },
